@@ -1,5 +1,6 @@
 <?php
 
+use App\Services\Rules\TextNormalizer;
 use App\Services\Statements\IngStatementParser;
 use App\Services\Statements\MerchantDeriver;
 use App\Services\Statements\ParsedEntry;
@@ -71,4 +72,23 @@ function entry(int $amountCents, ?string $counterparty = null, string $purpose =
         merchant: (new MerchantDeriver)->derive($type, $counterparty, $purpose),
         amountCents: $amountCents,
     );
+}
+
+/** Assigns every still-open queue entry of the pending import to $group via the JSON route. */
+function assignOpenEntries(string $group = 'other'): void
+{
+    $import = session('statement_import');
+
+    foreach ($import['assignments'] as $i => $assignment) {
+        $merchantKey = TextNormalizer::normalize($import['entries'][$i]['merchant']);
+        $open = $assignment['group_key'] === null
+            && ! $assignment['ignored']
+            && $import['entries'][$i]['amount_cents'] < 0
+            && ! isset(($import['picks'] ?? [])[$i])
+            && ! isset(($import['always'] ?? [])[$merchantKey]);
+
+        if ($open) {
+            test()->postJson(route('upload.assign'), ['entry' => $i, 'group' => $group])->assertOk();
+        }
+    }
 }

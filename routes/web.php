@@ -22,4 +22,6 @@ Route::middleware(['auth', DiscardPendingStatementImport::class])->group(functio
     Route::get('/upload/review', [StatementUploadController::class, 'review'])->name('upload.review');
     Route::post('/upload/confirm', [StatementUploadController::class, 'confirm'])->name('upload.confirm');
     Route::post('/upload/discard', [StatementUploadController::class, 'discard'])->name('upload.discard');
+    Route::post('/upload/assign', [StatementUploadController::class, 'assign'])->name('upload.assign');
+    Route::post('/upload/always', [StatementUploadController::class, 'always'])->name('upload.always');
 });

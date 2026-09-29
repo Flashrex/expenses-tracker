@@ -2,19 +2,28 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\RuleDirection;
+use App\Enums\RuleField;
+use App\Enums\RuleSource;
 use App\Http\Middleware\DiscardPendingStatementImport;
+use App\Http\Requests\AssignReviewEntryRequest;
 use App\Http\Requests\StoreStatementUploadRequest;
+use App\Http\Requests\ToggleAlwaysRuleRequest;
+use App\Models\Rule;
 use App\Models\Statement;
 use App\Services\Rules\RuleMatch;
 use App\Services\Rules\RuleMatcher;
 use App\Services\Statements\IngStatementParser;
 use App\Services\Statements\ParsedEntry;
 use App\Services\Statements\ParsedStatement;
+use App\Services\Statements\ReviewQueue;
 use App\Services\Statements\StatementParseException;
 use App\Support\Period;
 use Illuminate\Contracts\View\View;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class StatementUploadController extends Controller
 {
@@ -65,13 +74,71 @@ class StatementUploadController extends Controller
             ->where('period', $statement->period)
             ->exists();
 
-        $rows = array_map(
-            fn (ParsedEntry $entry, RuleMatch $match) => ['entry' => $entry, 'match' => $match],
-            $statement->entries,
-            $this->pendingAssignments($statement),
-        );
+        $queue = $this->reviewQueue($statement);
+        $matches = $this->pendingAssignments($statement);
+        $queueRows = [];
+        $rows = [];
 
-        return view('pages.upload-review', compact('statement', 'existing', 'rows'));
+        foreach ($statement->entries as $index => $entry) {
+            if ($queue->contains($index)) {
+                $queueRows[] = ['index' => $index, 'entry' => $entry];
+            } else {
+                $rows[] = ['entry' => $entry, 'match' => $matches[$index]];
+            }
+        }
+
+        return view('pages.upload-review', [
+            'statement' => $statement,
+            'existing' => $existing,
+            'queueRows' => $queueRows,
+            'rows' => $rows,
+            'queueState' => $queue->state(),
+            'open' => $queue->openCount(),
+        ]);
+    }
+
+    /**
+     * Assign a group to an entry of the review queue.
+     */
+    public function assign(AssignReviewEntryRequest $request): JsonResponse
+    {
+        $statement = $this->pending();
+
+        if ($statement === null) {
+            return response()->json(['redirect' => route('upload')], 409);
+        }
+
+        $queue = $this->reviewQueue($statement);
+        $index = $this->queuedIndex($request->integer('entry'), $queue);
+
+        $queue->pick($index, $request->string('group')->toString());
+        $this->storeReviewQueue($queue);
+
+        return response()->json($queue->state());
+    }
+
+    /**
+     * Tick or untick "always use this group" for the merchant of a queue entry.
+     */
+    public function always(ToggleAlwaysRuleRequest $request): JsonResponse
+    {
+        $statement = $this->pending();
+
+        if ($statement === null) {
+            return response()->json(['redirect' => route('upload')], 409);
+        }
+
+        $queue = $this->reviewQueue($statement);
+        $index = $this->queuedIndex($request->integer('entry'), $queue);
+
+        if ($request->boolean('always') && $queue->groupFor($index) === null) {
+            throw ValidationException::withMessages(['always' => 'Pick a group first.']);
+        }
+
+        $queue->setAlways($index, $request->boolean('always'));
+        $this->storeReviewQueue($queue);
+
+        return response()->json($queue->state());
     }
 
     /**
@@ -85,9 +152,14 @@ class StatementUploadController extends Controller
             return redirect()->route('upload');
         }
 
-        $matches = $this->pendingAssignments($parsed);
+        $queue = $this->reviewQueue($parsed);
 
-        DB::transaction(function () use ($parsed, $matches) {
+        if (($open = $queue->openCount()) > 0) {
+            return redirect()->route('upload.review')
+                ->with('review_error', $open === 1 ? '1 entry still needs a group.' : "{$open} entries still need a group.");
+        }
+
+        DB::transaction(function () use ($parsed, $queue) {
             Statement::query()
                 ->where('number', $parsed->number)
                 ->where('period', $parsed->period)
@@ -106,6 +178,17 @@ class StatementUploadController extends Controller
                 'confirmed_at' => now(),
             ]);
 
+            $ruleIds = [];
+
+            foreach ($queue->always() as $key => $choice) {
+                $rule = Rule::query()->updateOrCreate(
+                    ['source' => RuleSource::Manual->value, 'field' => RuleField::Merchant->value, 'pattern' => $choice['merchant'], 'direction' => RuleDirection::Out->value],
+                    ['priority' => Rule::MANUAL_PRIORITY, 'group_key' => $choice['group_key'], 'share_divisor' => 1, 'ignore' => false],
+                );
+
+                $ruleIds[$key] = $rule->id;
+            }
+
             $statement->transactions()->createMany(array_map(fn (ParsedEntry $entry, RuleMatch $match) => [
                 ...$entry->toArray(),
                 'period' => $parsed->period,
@@ -113,7 +196,7 @@ class StatementUploadController extends Controller
                 'share_divisor' => $match->shareDivisor,
                 'ignored' => $match->ignored,
                 'rule_id' => $match->ruleId,
-            ], $parsed->entries, $matches));
+            ], $parsed->entries, $queue->finalMatches($ruleIds)));
         });
 
         session()->forget(DiscardPendingStatementImport::SESSION_KEY);
@@ -137,6 +220,36 @@ class StatementUploadController extends Controller
         $data = session(DiscardPendingStatementImport::SESSION_KEY);
 
         return $data === null ? null : ParsedStatement::fromArray($data);
+    }
+
+    private function reviewQueue(ParsedStatement $statement): ReviewQueue
+    {
+        return new ReviewQueue(
+            $statement->entries,
+            $this->pendingAssignments($statement),
+            session(DiscardPendingStatementImport::SESSION_KEY.'.picks', []),
+            session(DiscardPendingStatementImport::SESSION_KEY.'.always', []),
+        );
+    }
+
+    /**
+     * Write picks and "always" choices as whole arrays: normalized merchants may contain dots.
+     */
+    private function storeReviewQueue(ReviewQueue $queue): void
+    {
+        session([
+            DiscardPendingStatementImport::SESSION_KEY.'.picks' => $queue->picks(),
+            DiscardPendingStatementImport::SESSION_KEY.'.always' => $queue->always(),
+        ]);
+    }
+
+    private function queuedIndex(int $index, ReviewQueue $queue): int
+    {
+        if (! $queue->contains($index)) {
+            throw ValidationException::withMessages(['entry' => 'This entry cannot be assigned.']);
+        }
+
+        return $index;
     }
 
     /**

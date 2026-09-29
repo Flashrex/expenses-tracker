@@ -102,7 +102,10 @@ test('parses the upload and shows the review', function () {
         ->assertSee('01.06.')
         ->assertDontSee('already imported');
 
-    expect(substr_count($response->getContent(), '<tr'))->toBe(70);
+    $html = $response->getContent();
+
+    expect(substr_count($html, 'data-review-entry='))->toBe(65)
+        ->and(substr_count($html, '<tr'))->toBe(5);
 });
 
 test('keeps the pending import when the review is reloaded', function () {
@@ -123,6 +126,7 @@ test('redirects to upload when nothing is pending', function () {
 
 test('stores the statement and entries on confirm', function () {
     uploadJuneStatement();
+    assignOpenEntries();
 
     $this->post(route('upload.confirm'))
         ->assertRedirect(route('upload'))
@@ -148,7 +152,7 @@ test('stores the statement and entries on confirm', function () {
     foreach ($transactions as $transaction) {
         expect((string) $transaction->statement_id)->toBe((string) $statement->id)
             ->and($transaction->period)->toBe('2026-06')
-            ->and($transaction->group_key)->toBeNull()
+            ->and($transaction->group_key)->toBe($transaction->direction === 'out' ? 'other' : null)
             ->and($transaction->share_divisor)->toBe(1)
             ->and($transaction->ignored)->toBeFalse()
             ->and($transaction->rule_id)->toBeNull();
@@ -185,6 +189,7 @@ test('replaces the existing statement on confirm', function () {
     Transaction::factory()->count(2)->create(['statement_id' => $old->id]);
 
     uploadJuneStatement();
+    assignOpenEntries();
 
     $this->post(route('upload.confirm'))->assertRedirect(route('upload'));
 
@@ -200,6 +205,7 @@ test('does not treat another month with the same number as duplicate', function 
     uploadJuneStatement();
 
     $this->get(route('upload.review'))->assertDontSee('already imported');
+    assignOpenEntries();
     $this->post(route('upload.confirm'));
 
     expect(Statement::count())->toBe(2);
@@ -252,12 +258,13 @@ test('groups entries on the review page', function () {
 
     expect(substr_count($html, 'data-assignment="group"'))->toBe(64)
         ->and(substr_count($html, 'data-assignment="ignored"'))->toBe(3)
-        ->and(substr_count($html, 'data-assignment="unassigned"'))->toBe(1)
+        ->and(substr_count($html, 'data-assignment="unassigned"'))->toBe(0)
         ->and(substr_count($html, 'data-assignment="income"'))->toBe(1)
         ->and(substr_count($html, 'data-group="rent"'))->toBe(1)
         ->and(substr_count($html, '÷3'))->toBe(3)
-        ->and(substr_count($html, 'No group'))->toBe(1)
-        ->and(substr_count($html, '<tr'))->toBe(70);
+        ->and(substr_count($html, 'No group'))->toBe(0)
+        ->and(substr_count($html, 'data-review-entry='))->toBe(1)
+        ->and(substr_count($html, '<tr'))->toBe(69);
 });
 
 test('keeps the rule results in the pending import', function () {
@@ -276,6 +283,7 @@ test('keeps the rule results in the pending import', function () {
 test('stores the rule results on confirm', function () {
     $this->seed(RuleSeeder::class);
     uploadJuneStatement();
+    assignOpenEntries();
 
     $this->post(route('upload.confirm'))->assertRedirect(route('upload'));
 
@@ -294,7 +302,7 @@ test('stores the rule results on confirm', function () {
 
     $transfer = Transaction::where('amount_cents', -20000)->sole();
 
-    expect($transfer->group_key)->toBeNull()
+    expect($transfer->group_key)->toBe('other')
         ->and($transfer->rule_id)->toBeNull()
         ->and($transfer->ignored)->toBeFalse();
 
@@ -302,7 +310,7 @@ test('stores the rule results on confirm', function () {
 
     expect($salary->group_key)->toBeNull()
         ->and($salary->ignored)->toBeFalse()
-        ->and(Transaction::whereNotNull('group_key')->count())->toBe(64);
+        ->and(Transaction::whereNotNull('group_key')->count())->toBe(65);
 
     $ruleIds = Transaction::whereNotNull('rule_id')->pluck('rule_id')->unique();
 
@@ -312,6 +320,7 @@ test('stores the rule results on confirm', function () {
 test('stores what was matched at upload time', function () {
     $this->seed(RuleSeeder::class);
     uploadJuneStatement();
+    assignOpenEntries();
 
     Rule::query()->delete();
 
@@ -328,13 +337,16 @@ test('imports without rules', function () {
 
     $html = $this->get(route('upload.review'))->assertOk()->getContent();
 
-    expect(substr_count($html, 'No group'))->toBe(65)
-        ->and(substr_count($html, 'data-assignment="income"'))->toBe(4);
+    expect(substr_count($html, 'data-review-entry='))->toBe(65)
+        ->and(substr_count($html, 'data-assignment="income"'))->toBe(4)
+        ->and(strip_tags($html))->toContain('65 to review');
+
+    assignOpenEntries();
 
     $this->post(route('upload.confirm'))->assertRedirect(route('upload'));
 
     foreach (Transaction::all() as $transaction) {
-        expect($transaction->group_key)->toBeNull()
+        expect($transaction->group_key)->toBe($transaction->direction === 'out' ? 'other' : null)
             ->and($transaction->ignored)->toBeFalse()
             ->and($transaction->rule_id)->toBeNull();
     }
