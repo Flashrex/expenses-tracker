@@ -227,6 +227,56 @@ test('passes imported flags per year', function () {
         ->and($chart['labels'])->toBe(['2024', '2025', '2026']);
 });
 
+test('renders the line chart card', function () {
+    $this->actingAs($this->user);
+    importFixtureStatement();
+    importJuly();
+
+    $response = $this->get(route('trends'))
+        ->assertOk()
+        ->assertSee('x-ref="line"', false)
+        ->assertSee('aria-label="Spending over time per month, Jun 2026 – Jul 2026"', false)
+        ->assertSee('Total spending over time')
+        ->assertSee('Click a group in the chart above to see it here')
+        ->assertSee('data-lock-chip', false)
+        ->assertDontSee('data-single-period', false);
+
+    expect(substr_count($response->getContent(), 'x-data="trendChart"'))->toBe(1);
+});
+
+test('labels the line chart per year', function () {
+    $this->actingAs($this->user);
+    importFixtureStatement();
+
+    $this->get(route('trends', ['by' => 'year']))
+        ->assertOk()
+        ->assertSee('aria-label="Spending over time per year, 2026"', false);
+});
+
+test('shows the single month hint on both cards', function () {
+    $this->actingAs($this->user);
+    importFixtureStatement();
+
+    $response = $this->get(route('trends'))->assertOk()->assertSee('x-ref="line"', false);
+
+    expect(substr_count($response->getContent(), 'data-single-period'))->toBe(2);
+});
+
+test('shows no line chart without spending', function () {
+    importedMonth('2026-06', [['amount_cents' => 5000, 'direction' => 'in']]);
+
+    $response = $this->actingAs($this->user)->get(route('trends'))
+        ->assertOk()
+        ->assertSee('Total spending over time')
+        ->assertDontSee('x-ref="line"', false)
+        ->assertDontSee('data-lock-chip', false)
+        ->assertDontSee('Click a group in the chart above');
+    $html = $response->getContent();
+
+    expect(substr_count($html, 'No spending in Jun 2026'))->toBe(2)
+        ->and(substr_count($html, 'data-single-period'))->toBe(2);
+});
+
 test('registers the line chart module', function () {
     $js = file_get_contents(resource_path('js/charts/echarts.js'));
 
