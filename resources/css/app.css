@@ -25,4 +25,8 @@
     html {
         color-scheme: light dark;
     }
+
+    [x-cloak] {
+        display: none !important;
+    }
 }

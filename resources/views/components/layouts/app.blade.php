@@ -23,7 +23,7 @@
                 <nav aria-label="Main" class="flex flex-1 items-center justify-center gap-1">
                     <x-nav-link :href="route('overview')" :active="request()->routeIs('overview')" icon="heroicon-o-chart-pie" label="Overview" />
                     <x-nav-link :href="route('trends')" :active="request()->routeIs('trends')" icon="heroicon-o-chart-bar" label="Trends" />
-                    <x-nav-link :href="route('upload')" :active="request()->routeIs('upload')" icon="heroicon-o-arrow-up-tray" label="Upload" />
+                    <x-nav-link :href="route('upload')" :active="request()->routeIs('upload', 'upload.*')" icon="heroicon-o-arrow-up-tray" label="Upload" />
                 </nav>
 
                 <form method="POST" action="{{ route('logout') }}">
