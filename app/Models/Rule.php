@@ -29,6 +29,11 @@ class Rule extends Model
     use HasFactory;
 
     /**
+     * Priority of rules the user creates while reviewing, so they win over seeded rules.
+     */
+    public const MANUAL_PRIORITY = 300;
+
+    /**
      * The model's default values for attributes.
      *
      * @var array<string, mixed>
