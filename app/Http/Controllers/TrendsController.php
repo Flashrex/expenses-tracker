@@ -34,9 +34,9 @@ class TrendsController extends Controller
         $first = $imported[0];
         $last = $imported[array_key_last($imported)];
 
-        $series = TrendSeries::build($mode, $first, $last, $report->totalsByPeriod($first, $last), config('expenses.groups'));
+        $series = TrendSeries::build($mode, $imported, $report->totalsByPeriod($first, $last), config('expenses.groups'));
 
-        $chart = ['labels' => $series->labels, 'series' => $series->groups];
+        $chart = ['labels' => $series->labels, 'imported' => $series->imported, 'series' => $series->groups];
 
         return view('pages.trends', [
             'series' => $series,

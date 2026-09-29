@@ -7,7 +7,7 @@ beforeEach(function () {
     $this->user = User::factory()->create();
 });
 
-/** @return array{labels: list<string>, series: list<array{key: string, name: string, color: string, values: list<int>}>} */
+/** @return array{labels: list<string>, imported: list<bool>, series: list<array{key: string, name: string, color: string, values: list<int>}>} */
 function trendChart(TestResponse $response): array
 {
     preg_match('/data-chart="([^"]*)"/', $response->getContent(), $match);
@@ -202,4 +202,27 @@ test('includes unassigned spending', function () {
     expect($chart['series'])->toBe([
         ['key' => 'unassigned', 'name' => 'Unassigned', 'color' => '#cbd5e1', 'values' => [700]],
     ]);
+});
+
+test('passes imported flags to the chart', function () {
+    importedMonth('2026-03', [['amount_cents' => -1000, 'group_key' => 'groceries']]);
+    importedMonth('2026-04', [['amount_cents' => 5000, 'direction' => 'in']]);
+    importedMonth('2026-06', [['amount_cents' => -2000, 'group_key' => 'groceries']]);
+
+    $response = $this->actingAs($this->user)->get(route('trends'))->assertOk();
+    $chart = trendChart($response);
+
+    expect(array_keys($chart))->toBe(['labels', 'imported', 'series'])
+        ->and($chart['imported'])->toBe([true, true, false, true])
+        ->and(trendSeriesByKey($response)['groceries']['values'])->toBe([1000, 0, 0, 2000]);
+});
+
+test('passes imported flags per year', function () {
+    importedMonth('2024-05', [['amount_cents' => -500, 'group_key' => 'other']]);
+    importedMonth('2026-01', [['amount_cents' => -700, 'group_key' => 'other']]);
+
+    $chart = trendChart($this->actingAs($this->user)->get(route('trends', ['by' => 'year']))->assertOk());
+
+    expect($chart['imported'])->toBe([true, false, true])
+        ->and($chart['labels'])->toBe(['2024', '2025', '2026']);
 });

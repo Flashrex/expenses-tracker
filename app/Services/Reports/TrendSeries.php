@@ -6,7 +6,7 @@ use App\Enums\ReportMode;
 use App\Support\Period;
 
 /**
- * Spending per group over a continuous range of months or years, ready for a stacked bar chart.
+ * Spending per group over a continuous range of months or years, ready for a stacked bar chart and a line chart.
  */
 final readonly class TrendSeries
 {
@@ -14,26 +14,35 @@ final readonly class TrendSeries
      * @param  list<string>  $periods  'YYYY-MM' (month) or 'YYYY' (year), ascending, continuous
      * @param  list<string>  $labels  axis labels aligned with $periods
      * @param  list<array{key: string, name: string, color: string, values: list<int>}>  $groups  values = positive cents aligned with $periods
+     * @param  list<bool>  $imported  aligned with $periods: month (or any month of the year) has a confirmed statement
      */
     private function __construct(
         public ReportMode $mode,
         public array $periods,
         public array $labels,
         public array $groups,
+        public array $imported,
     ) {}
 
     /**
+     * @param  non-empty-list<string>  $importedMonths  Statement::importedPeriods(): 'YYYY-MM', ascending; the range runs from the first to the last
      * @param  array<string, Totals>  $totalsByPeriod  SpendingReport::totalsByPeriod() output
      * @param  array<string, array{name: string, color: string, sort: int}>  $groups  config('expenses.groups')
      */
-    public static function build(ReportMode $mode, string $firstMonth, string $lastMonth, array $totalsByPeriod, array $groups): self
+    public static function build(ReportMode $mode, array $importedMonths, array $totalsByPeriod, array $groups): self
     {
+        $firstMonth = $importedMonths[0];
+        $lastMonth = $importedMonths[array_key_last($importedMonths)];
+
         $buckets = $mode === ReportMode::Month
             ? self::monthBuckets($firstMonth, $lastMonth, $totalsByPeriod)
             : self::yearBuckets($firstMonth, $lastMonth, $totalsByPeriod);
 
         $periods = array_map('strval', array_keys($buckets));
         $labels = $mode === ReportMode::Month ? array_map(Period::short(...), $periods) : $periods;
+
+        $importedPeriods = $mode === ReportMode::Month ? $importedMonths : array_map(fn (string $month) => substr($month, 0, 4), $importedMonths);
+        $imported = array_map(fn (string $period) => in_array($period, $importedPeriods, true), $periods);
 
         uasort($groups, fn (array $a, array $b) => $a['sort'] <=> $b['sort']);
         $groups[GroupComparison::UNASSIGNED] = ['name' => 'Unassigned', 'color' => '#cbd5e1'];
@@ -48,7 +57,7 @@ final readonly class TrendSeries
             }
         }
 
-        return new self($mode, $periods, $labels, $series);
+        return new self($mode, $periods, $labels, $series, $imported);
     }
 
     /**

@@ -29,7 +29,7 @@ function trendGroupsByKey(TrendSeries $series): array
 }
 
 test('builds a continuous month axis with zeros for missing months', function () {
-    $series = TrendSeries::build(ReportMode::Month, '2026-03', '2026-06', [
+    $series = TrendSeries::build(ReportMode::Month, ['2026-03', '2026-06'], [
         '2026-03' => spent(['groceries' => 1000]),
         '2026-06' => spent(['groceries' => 2000]),
     ], trendGroups());
@@ -40,13 +40,13 @@ test('builds a continuous month axis with zeros for missing months', function ()
 });
 
 test('steps months across a year boundary', function () {
-    $series = TrendSeries::build(ReportMode::Month, '2025-11', '2026-02', [], trendGroups());
+    $series = TrendSeries::build(ReportMode::Month, ['2025-11', '2026-02'], [], trendGroups());
 
     expect($series->periods)->toBe(['2025-11', '2025-12', '2026-01', '2026-02']);
 });
 
 test('folds months into years', function () {
-    $series = TrendSeries::build(ReportMode::Year, '2025-12', '2026-07', [
+    $series = TrendSeries::build(ReportMode::Year, ['2025-12', '2026-07'], [
         '2025-12' => spent(['groceries' => 9999]),
         '2026-06' => spent(['groceries' => 29349, 'rent' => 38607]),
         '2026-07' => spent(['groceries' => 1000, 'rent' => 10000]),
@@ -61,7 +61,7 @@ test('folds months into years', function () {
 });
 
 test('fills missing years with zeros', function () {
-    $series = TrendSeries::build(ReportMode::Year, '2024-05', '2026-01', [
+    $series = TrendSeries::build(ReportMode::Year, ['2024-05', '2026-01'], [
         '2024-05' => spent(['other' => 500]),
         '2026-01' => spent(['other' => 700]),
     ], trendGroups());
@@ -71,7 +71,7 @@ test('fills missing years with zeros', function () {
 });
 
 test('lists only groups with spending in config order', function () {
-    $series = TrendSeries::build(ReportMode::Month, '2026-06', '2026-06', [
+    $series = TrendSeries::build(ReportMode::Month, ['2026-06', '2026-06'], [
         '2026-06' => spent(['takeaway' => 9000, 'rent' => 100]),
     ], trendGroups());
 
@@ -81,7 +81,7 @@ test('lists only groups with spending in config order', function () {
 });
 
 test('adds unassigned after the config groups', function () {
-    $series = TrendSeries::build(ReportMode::Month, '2026-06', '2026-06', [
+    $series = TrendSeries::build(ReportMode::Month, ['2026-06', '2026-06'], [
         '2026-06' => spent(['unassigned' => 500, 'rent' => 100]),
     ], trendGroups());
 
@@ -90,7 +90,7 @@ test('adds unassigned after the config groups', function () {
 });
 
 test('sums the groups per period', function () {
-    $series = TrendSeries::build(ReportMode::Month, '2026-04', '2026-06', [
+    $series = TrendSeries::build(ReportMode::Month, ['2026-04', '2026-06'], [
         '2026-04' => spent(['rent' => 100, 'groceries' => 250]),
         '2026-06' => spent(['groceries' => 40]),
     ], trendGroups());
@@ -99,7 +99,7 @@ test('sums the groups per period', function () {
 });
 
 test('labels the range', function () {
-    $range = fn (ReportMode $mode, string $first, string $last) => TrendSeries::build($mode, $first, $last, [], trendGroups())->rangeLabel();
+    $range = fn (ReportMode $mode, string $first, string $last) => TrendSeries::build($mode, [$first, $last], [], trendGroups())->rangeLabel();
 
     expect($range(ReportMode::Month, '2025-06', '2026-06'))->toBe('Jun 2025 – Jun 2026')
         ->and($range(ReportMode::Month, '2026-06', '2026-06'))->toBe('Jun 2026')
@@ -108,11 +108,41 @@ test('labels the range', function () {
 });
 
 test('has no spending without group amounts', function () {
-    $series = TrendSeries::build(ReportMode::Month, '2026-04', '2026-06', [
+    $series = TrendSeries::build(ReportMode::Month, ['2026-04', '2026-06'], [
         '2026-05' => Totals::empty(),
     ], trendGroups());
 
     expect($series->groups)->toBe([])
         ->and($series->hasSpending())->toBeFalse()
         ->and($series->periods)->toBe(['2026-04', '2026-05', '2026-06']);
+});
+
+test('flags imported months including months without spending', function () {
+    $series = TrendSeries::build(ReportMode::Month, ['2026-03', '2026-04', '2026-06'], [
+        '2026-03' => spent(['groceries' => 1000]),
+        '2026-06' => spent(['groceries' => 2000]),
+    ], trendGroups());
+
+    expect($series->periods)->toBe(['2026-03', '2026-04', '2026-05', '2026-06'])
+        ->and($series->imported)->toBe([true, true, false, true])
+        ->and(trendGroupsByKey($series)['groceries']['values'])->toBe([1000, 0, 0, 2000]);
+});
+
+test('flags years with any imported month', function () {
+    $series = TrendSeries::build(ReportMode::Year, ['2024-05', '2026-01', '2026-02'], [
+        '2024-05' => spent(['other' => 500]),
+        '2026-01' => spent(['other' => 700]),
+    ], trendGroups());
+
+    expect($series->periods)->toBe(['2024', '2025', '2026'])
+        ->and($series->imported)->toBe([true, false, true]);
+});
+
+test('flags an imported year without spending', function () {
+    $series = TrendSeries::build(ReportMode::Year, ['2025-03', '2026-06'], [
+        '2026-06' => spent(['groceries' => 2000]),
+    ], trendGroups());
+
+    expect($series->imported)->toBe([true, true])
+        ->and(trendGroupsByKey($series)['groceries']['values'])->toBe([0, 2000]);
 });
