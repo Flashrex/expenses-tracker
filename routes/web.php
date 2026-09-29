@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\OverviewController;
 use App\Http\Controllers\StatementUploadController;
 use App\Http\Middleware\DiscardPendingStatementImport;
 use Illuminate\Support\Facades\Route;
@@ -14,7 +15,7 @@ Route::middleware(['auth', DiscardPendingStatementImport::class])->group(functio
     Route::post('/logout', [LoginController::class, 'destroy'])->name('logout');
 
     Route::get('/', fn () => redirect()->route('overview'))->name('home');
-    Route::view('/overview', 'pages.overview')->name('overview');
+    Route::get('/overview', OverviewController::class)->name('overview');
     Route::view('/trends', 'pages.trends')->name('trends');
 
     Route::get('/upload', [StatementUploadController::class, 'create'])->name('upload');
