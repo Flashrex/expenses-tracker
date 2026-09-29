@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Http\Middleware\DiscardPendingStatementImport;
 use App\Http\Requests\StoreStatementUploadRequest;
 use App\Models\Statement;
+use App\Services\Rules\RuleMatch;
+use App\Services\Rules\RuleMatcher;
 use App\Services\Statements\IngStatementParser;
 use App\Services\Statements\ParsedEntry;
 use App\Services\Statements\ParsedStatement;
@@ -38,7 +40,11 @@ class StatementUploadController extends Controller
             return back()->withErrors(['statement' => "This doesn't look like an ING statement."]);
         }
 
-        session([DiscardPendingStatementImport::SESSION_KEY => $parsed->toArray()]);
+        $matches = RuleMatcher::fromDatabase()->matchAll($parsed->entries);
+
+        session([DiscardPendingStatementImport::SESSION_KEY => $parsed->toArray() + [
+            'assignments' => array_map(fn (RuleMatch $match) => $match->toArray(), $matches),
+        ]]);
 
         return redirect()->route('upload.review');
     }
@@ -59,7 +65,13 @@ class StatementUploadController extends Controller
             ->where('period', $statement->period)
             ->exists();
 
-        return view('pages.upload-review', compact('statement', 'existing'));
+        $rows = array_map(
+            fn (ParsedEntry $entry, RuleMatch $match) => ['entry' => $entry, 'match' => $match],
+            $statement->entries,
+            $this->pendingAssignments($statement),
+        );
+
+        return view('pages.upload-review', compact('statement', 'existing', 'rows'));
     }
 
     /**
@@ -73,7 +85,9 @@ class StatementUploadController extends Controller
             return redirect()->route('upload');
         }
 
-        DB::transaction(function () use ($parsed) {
+        $matches = $this->pendingAssignments($parsed);
+
+        DB::transaction(function () use ($parsed, $matches) {
             Statement::query()
                 ->where('number', $parsed->number)
                 ->where('period', $parsed->period)
@@ -92,14 +106,14 @@ class StatementUploadController extends Controller
                 'confirmed_at' => now(),
             ]);
 
-            $statement->transactions()->createMany(array_map(fn (ParsedEntry $entry) => [
+            $statement->transactions()->createMany(array_map(fn (ParsedEntry $entry, RuleMatch $match) => [
                 ...$entry->toArray(),
                 'period' => $parsed->period,
-                'group_key' => null,
-                'share_divisor' => 1,
-                'ignored' => false,
-                'rule_id' => null,
-            ], $parsed->entries));
+                'group_key' => $match->groupKey,
+                'share_divisor' => $match->shareDivisor,
+                'ignored' => $match->ignored,
+                'rule_id' => $match->ruleId,
+            ], $parsed->entries, $matches));
         });
 
         session()->forget(DiscardPendingStatementImport::SESSION_KEY);
@@ -123,5 +137,21 @@ class StatementUploadController extends Controller
         $data = session(DiscardPendingStatementImport::SESSION_KEY);
 
         return $data === null ? null : ParsedStatement::fromArray($data);
+    }
+
+    /**
+     * The rule results matched at upload time, one per entry.
+     *
+     * @return list<RuleMatch>
+     */
+    private function pendingAssignments(ParsedStatement $statement): array
+    {
+        $assignments = session(DiscardPendingStatementImport::SESSION_KEY.'.assignments');
+
+        if (! is_array($assignments) || count($assignments) !== count($statement->entries)) {
+            return array_map(fn () => RuleMatch::none(), $statement->entries);
+        }
+
+        return array_map(RuleMatch::fromArray(...), array_values($assignments));
     }
 }

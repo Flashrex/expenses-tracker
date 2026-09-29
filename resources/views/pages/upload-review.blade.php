@@ -75,14 +75,34 @@
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
-                    @foreach ($statement->entries as $entry)
-                        <tr>
-                            <td class="w-16 px-4 py-2.5 text-slate-500 tabular-nums dark:text-slate-400">{{ \Illuminate\Support\Carbon::parse($entry->bookedOn)->format('d.m.') }}</td>
-                            <td class="w-full max-w-0 truncate px-2 py-2.5 font-medium" title="{{ $entry->merchant }}">{{ $entry->merchant }}</td>
+                    @foreach ($rows as ['entry' => $entry, 'match' => $match])
+                        @php($state = $match->state($entry->direction()))
+                        <tr data-assignment="{{ $state }}" @if ($state === 'group') data-group="{{ $match->groupKey }}" @endif @class(['opacity-50' => $state === 'ignored'])>
+                            <td class="w-16 px-4 py-2.5 align-top text-slate-500 tabular-nums dark:text-slate-400">{{ \Illuminate\Support\Carbon::parse($entry->bookedOn)->format('d.m.') }}</td>
+                            <td class="w-full max-w-0 px-2 py-2.5">
+                                <div class="truncate font-medium" title="{{ $entry->merchant }}">{{ $entry->merchant }}</div>
+
+                                @if ($state !== 'income')
+                                    <div class="mt-1 flex flex-wrap items-center gap-1.5">
+                                        @if ($state === 'group')
+                                            <x-group-chip :group="$match->groupKey" />
+
+                                            @if ($match->shareDivisor > 1)
+                                                <span title="Your share: 1/{{ $match->shareDivisor }}" class="inline-flex items-center rounded-full border border-slate-200 px-1.5 py-0.5 text-xs font-medium tabular-nums text-slate-600 dark:border-slate-700 dark:text-slate-300">÷{{ $match->shareDivisor }}</span>
+                                            @endif
+                                        @elseif ($state === 'ignored')
+                                            <span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-400"><x-heroicon-m-eye-slash class="size-3.5" />ignored</span>
+                                        @else
+                                            <span class="inline-flex items-center rounded-full border border-dashed border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-500 dark:border-slate-600 dark:text-slate-400">No group</span>
+                                        @endif
+                                    </div>
+                                @endif
+                            </td>
                             <td @class([
-                                'whitespace-nowrap px-4 py-2.5 text-right font-medium tabular-nums',
+                                'whitespace-nowrap px-4 py-2.5 text-right align-top font-medium tabular-nums',
                                 'text-rose-600 dark:text-rose-400' => $entry->amountCents < 0,
                                 'text-emerald-600 dark:text-emerald-400' => $entry->amountCents >= 0,
+                                'line-through' => $state === 'ignored',
                             ])>{{ Money::format($entry->amountCents, true) }}</td>
                         </tr>
                     @endforeach

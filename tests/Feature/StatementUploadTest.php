@@ -1,8 +1,10 @@
 <?php
 
+use App\Models\Rule;
 use App\Models\Statement;
 use App\Models\Transaction;
 use App\Models\User;
+use Database\Seeders\RuleSeeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 
@@ -230,4 +232,110 @@ test('marks upload as active on the review page', function () {
 
     expect(substr_count($html, 'aria-current="page"'))->toBe(1)
         ->and(preg_match('/<a[^>]*href="'.preg_quote(route('upload'), '/').'"[^>]*aria-current="page"/', $html))->toBe(1);
+});
+
+function mieteOutRuleId(): string
+{
+    return Rule::query()->where('pattern', 'Miete')->where('direction', 'out')->first()->id;
+}
+
+test('groups entries on the review page', function () {
+    $this->seed(RuleSeeder::class);
+    uploadJuneStatement();
+
+    $response = $this->get(route('upload.review'))
+        ->assertOk()
+        ->assertSee('Groceries & Personal Care')
+        ->assertSee('ignored');
+
+    $html = $response->getContent();
+
+    expect(substr_count($html, 'data-assignment="group"'))->toBe(64)
+        ->and(substr_count($html, 'data-assignment="ignored"'))->toBe(3)
+        ->and(substr_count($html, 'data-assignment="unassigned"'))->toBe(1)
+        ->and(substr_count($html, 'data-assignment="income"'))->toBe(1)
+        ->and(substr_count($html, 'data-group="rent"'))->toBe(1)
+        ->and(substr_count($html, '÷3'))->toBe(3)
+        ->and(substr_count($html, 'No group'))->toBe(1)
+        ->and(substr_count($html, '<tr'))->toBe(70);
+});
+
+test('keeps the rule results in the pending import', function () {
+    $this->seed(RuleSeeder::class);
+    uploadJuneStatement();
+
+    expect(session('statement_import.assignments'))->toHaveCount(69)
+        ->and(session('statement_import.assignments')[1])->toBe([
+            'group_key' => 'rent',
+            'share_divisor' => 3,
+            'ignored' => false,
+            'rule_id' => mieteOutRuleId(),
+        ]);
+});
+
+test('stores the rule results on confirm', function () {
+    $this->seed(RuleSeeder::class);
+    uploadJuneStatement();
+
+    $this->post(route('upload.confirm'))->assertRedirect(route('upload'));
+
+    $rent = Transaction::where('amount_cents', -115820)->sole();
+
+    expect($rent->group_key)->toBe('rent')
+        ->and($rent->share_divisor)->toBe(3)
+        ->and($rent->ignored)->toBeFalse()
+        ->and($rent->rule_id)->toBe(mieteOutRuleId())
+        ->and($rent->rule->pattern)->toBe('Miete');
+
+    $ignored = Transaction::where('ignored', true)->get();
+
+    expect($ignored)->toHaveCount(3)
+        ->and($ignored->every(fn (Transaction $transaction) => $transaction->group_key === null))->toBeTrue();
+
+    $transfer = Transaction::where('amount_cents', -20000)->sole();
+
+    expect($transfer->group_key)->toBeNull()
+        ->and($transfer->rule_id)->toBeNull()
+        ->and($transfer->ignored)->toBeFalse();
+
+    $salary = Transaction::where('amount_cents', 134819)->sole();
+
+    expect($salary->group_key)->toBeNull()
+        ->and($salary->ignored)->toBeFalse()
+        ->and(Transaction::whereNotNull('group_key')->count())->toBe(64);
+
+    $ruleIds = Transaction::whereNotNull('rule_id')->pluck('rule_id')->unique();
+
+    expect(Rule::query()->whereIn('_id', $ruleIds->all())->count())->toBe($ruleIds->count());
+});
+
+test('stores what was matched at upload time', function () {
+    $this->seed(RuleSeeder::class);
+    uploadJuneStatement();
+
+    Rule::query()->delete();
+
+    $this->post(route('upload.confirm'))->assertRedirect(route('upload'));
+
+    $rent = Transaction::where('amount_cents', -115820)->sole();
+
+    expect($rent->group_key)->toBe('rent')
+        ->and($rent->share_divisor)->toBe(3);
+});
+
+test('imports without rules', function () {
+    uploadJuneStatement();
+
+    $html = $this->get(route('upload.review'))->assertOk()->getContent();
+
+    expect(substr_count($html, 'No group'))->toBe(65)
+        ->and(substr_count($html, 'data-assignment="income"'))->toBe(4);
+
+    $this->post(route('upload.confirm'))->assertRedirect(route('upload'));
+
+    foreach (Transaction::all() as $transaction) {
+        expect($transaction->group_key)->toBeNull()
+            ->and($transaction->ignored)->toBeFalse()
+            ->and($transaction->rule_id)->toBeNull();
+    }
 });
