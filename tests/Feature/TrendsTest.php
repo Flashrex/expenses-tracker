@@ -226,3 +226,10 @@ test('passes imported flags per year', function () {
     expect($chart['imported'])->toBe([true, false, true])
         ->and($chart['labels'])->toBe(['2024', '2025', '2026']);
 });
+
+test('registers the line chart module', function () {
+    $js = file_get_contents(resource_path('js/charts/echarts.js'));
+
+    expect($js)->toMatch("/import \\{[^}]*\\bLineChart\\b[^}]*\\} from 'echarts\\/charts'/")
+        ->toMatch('/echarts\.use\(\[[^\]]*\bLineChart\b/');
+});
