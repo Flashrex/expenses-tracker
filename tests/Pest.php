@@ -1,10 +1,13 @@
 <?php
 
+use App\Models\Statement;
+use App\Models\Transaction;
 use App\Services\Rules\TextNormalizer;
 use App\Services\Statements\IngStatementParser;
 use App\Services\Statements\MerchantDeriver;
 use App\Services\Statements\ParsedEntry;
 use App\Services\Statements\ParsedStatement;
+use Database\Seeders\RuleSeeder;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Illuminate\Http\UploadedFile;
 use Tests\TestCase;
@@ -91,4 +94,39 @@ function assignOpenEntries(string $group = 'other'): void
             test()->postJson(route('upload.assign'), ['entry' => $i, 'group' => $group])->assertOk();
         }
     }
+}
+
+/** Imports the June fixture through the real upload flow (seeded rules, open entry → other). Call after actingAs(). */
+function importFixtureStatement(): void
+{
+    test()->seed(RuleSeeder::class);
+    test()->post(route('upload.store'), ['statement' => statementUpload()])->assertRedirect(route('upload.review'));
+    assignOpenEntries('other');
+    test()->post(route('upload.confirm'))->assertRedirect(route('upload'));
+}
+
+/**
+ * A confirmed statement for $period (number = month) with the given transactions.
+ *
+ * @param  list<array<string, mixed>>  $transactions  attributes; period and statement are filled in
+ */
+function importedMonth(string $period, array $transactions = []): Statement
+{
+    $statement = Statement::factory()->create(['number' => (int) substr($period, 5), 'period' => $period]);
+
+    foreach ($transactions as $attributes) {
+        Transaction::factory()->for($statement)->create(['period' => $period] + $attributes);
+    }
+
+    return $statement;
+}
+
+/** A July 2026 statement next to the June fixture: 11.000 cents spent (groceries 1000, rent 30000 ÷ 3), 5000 income. */
+function importJuly(): void
+{
+    importedMonth('2026-07', [
+        ['amount_cents' => -1000, 'group_key' => 'groceries'],
+        ['amount_cents' => -30000, 'group_key' => 'rent', 'share_divisor' => 3],
+        ['amount_cents' => 5000, 'direction' => 'in'],
+    ]);
 }
