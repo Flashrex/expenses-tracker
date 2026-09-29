@@ -16,6 +16,10 @@ export default defineConfig({
         }),
         tailwindcss(),
     ],
+    build: {
+        // The lazily loaded ECharts chunk (pie, bar, SVG renderer) is ~534 kB minified.
+        chunkSizeWarningLimit: 600,
+    },
     server: {
         watch: {
             ignored: ['**/storage/framework/views/**'],
