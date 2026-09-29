@@ -18,7 +18,7 @@ class OverviewController extends Controller
      */
     public function __invoke(Request $request, SpendingReport $report): View|RedirectResponse
     {
-        $imported = Statement::query()->whereNotNull('confirmed_at')->pluck('period')->unique()->sort()->values()->all();
+        $imported = Statement::importedPeriods();
 
         if ($imported === []) {
             return view('pages.overview', ['period' => null]);

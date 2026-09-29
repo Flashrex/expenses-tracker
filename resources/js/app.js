@@ -1,8 +1,10 @@
 import Alpine from 'alpinejs';
 import donutChart from './donut-chart';
 import reviewQueue from './review-queue';
+import trendChart from './trend-chart';
 
 window.Alpine = Alpine;
 Alpine.data('reviewQueue', reviewQueue);
 Alpine.data('donutChart', donutChart);
+Alpine.data('trendChart', trendChart);
 Alpine.start();

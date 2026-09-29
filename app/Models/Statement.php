@@ -31,6 +31,16 @@ class Statement extends Model
     }
 
     /**
+     * Periods (YYYY-MM) that have a confirmed statement, ascending and unique.
+     *
+     * @return list<string>
+     */
+    public static function importedPeriods(): array
+    {
+        return static::query()->whereNotNull('confirmed_at')->pluck('period')->unique()->sort()->values()->all();
+    }
+
+    /**
      * The entries booked on this statement.
      *
      * @return HasMany<Transaction, $this>
