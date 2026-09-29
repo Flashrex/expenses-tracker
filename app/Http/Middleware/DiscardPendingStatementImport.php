@@ -11,13 +11,13 @@ class DiscardPendingStatementImport
     public const SESSION_KEY = 'statement_import';
 
     /**
-     * Drop a parsed but unconfirmed statement as soon as the user leaves the review.
+     * Drop the unconfirmed months of a pending import as soon as the user leaves the review.
      *
      * @param  Closure(Request): (Response)  $next
      */
     public function handle(Request $request, Closure $next): Response
     {
-        if (! $request->routeIs('upload.review', 'upload.confirm', 'upload.discard', 'upload.assign', 'upload.always')) {
+        if (! $request->routeIs('upload.review', 'upload.confirm', 'upload.skip', 'upload.discard', 'upload.assign', 'upload.always', 'upload.notice.dismiss')) {
             $request->session()->forget(self::SESSION_KEY);
         }
 

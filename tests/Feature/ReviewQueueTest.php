@@ -20,8 +20,8 @@ function uploadForReview(bool $seeded = true): void
     }
 
     test()->actingAs(test()->user)
-        ->post(route('upload.store'), ['statement' => statementUpload()])
-        ->assertRedirect(route('upload.review'));
+        ->post(route('upload.store'), ['statements' => [statementUpload()]])
+        ->assertRedirect(route('upload.review', '2026-06'));
 }
 
 /** @return list<int> indexes of the fixture entries with merchant TEGUT */
@@ -58,16 +58,16 @@ function hasAttribute(?string $tag, string $attribute): bool
 }
 
 test('redirects guests from the queue routes', function () {
-    $this->post('/upload/assign')->assertRedirect(route('login'));
-    $this->post('/upload/always')->assertRedirect(route('login'));
-    $this->postJson('/upload/assign')->assertUnauthorized();
-    $this->postJson('/upload/always')->assertUnauthorized();
+    $this->post('/upload/review/2026-06/assign')->assertRedirect(route('login'));
+    $this->post('/upload/review/2026-06/always')->assertRedirect(route('login'));
+    $this->postJson('/upload/review/2026-06/assign')->assertUnauthorized();
+    $this->postJson('/upload/review/2026-06/always')->assertUnauthorized();
 });
 
 test('shows the unmatched transfer in the review queue', function () {
     uploadForReview();
 
-    $html = $this->get(route('upload.review'))
+    $html = $this->get(route('upload.review', '2026-06'))
         ->assertOk()
         ->assertSee('To review')
         ->assertSeeText('1 to review')
@@ -88,7 +88,7 @@ test('hides the queue when every entry is matched', function () {
     Rule::factory()->manual()->create(['field' => RuleField::Merchant, 'pattern' => 'Echtzeitüberweisung', 'direction' => RuleDirection::Out, 'group_key' => 'other']);
     uploadForReview(seeded: false);
 
-    $html = $this->get(route('upload.review'))
+    $html = $this->get(route('upload.review', '2026-06'))
         ->assertOk()
         ->assertDontSee('To review')
         ->getContent();
@@ -102,17 +102,17 @@ test('hides the queue when every entry is matched', function () {
 test('assigns a group to a queue entry', function () {
     uploadForReview();
 
-    $this->postJson(route('upload.assign'), ['entry' => 65, 'group' => 'other'])
+    $this->postJson(route('upload.assign', '2026-06'), ['entry' => 65, 'group' => 'other'])
         ->assertOk()
         ->assertJsonPath('entries.65.group', 'other')
         ->assertJsonPath('entries.65.always', false)
         ->assertJsonPath('open', 0);
 
-    expect(session('statement_import.picks'))->toBe([65 => 'other'])
+    expect(session('statement_import.months.2026-06.picks'))->toBe([65 => 'other'])
         ->and(Transaction::count())->toBe(0)
         ->and(manualRules()->count())->toBe(0);
 
-    $html = $this->get(route('upload.review'))->assertOk()->getContent();
+    $html = $this->get(route('upload.review', '2026-06'))->assertOk()->getContent();
 
     expect(openingTag($html, 'span', 'data-review-done'))->not->toContain('display: none')
         ->and(openingTag($html, 'span', 'data-review-counter'))->toContain('display: none')
@@ -123,9 +123,9 @@ test('assigns a group to a queue entry', function () {
 test('rejects invalid assignments', function (array $payload) {
     uploadForReview();
 
-    $this->postJson(route('upload.assign'), $payload)->assertUnprocessable();
+    $this->postJson(route('upload.assign', '2026-06'), $payload)->assertUnprocessable();
 
-    expect(session('statement_import.picks'))->toBeNull();
+    expect(session('statement_import.months.2026-06.picks'))->toBeEmpty();
 })->with([
     'unknown group' => [['entry' => 65, 'group' => 'pets']],
     'rule-matched entry' => [['entry' => 1, 'group' => 'other']],
@@ -139,21 +139,21 @@ test('rejects invalid assignments', function (array $payload) {
 test('refuses always without a group', function () {
     uploadForReview();
 
-    $this->postJson(route('upload.always'), ['entry' => 65, 'always' => true])
+    $this->postJson(route('upload.always', '2026-06'), ['entry' => 65, 'always' => true])
         ->assertUnprocessable()
         ->assertJsonValidationErrors('always');
 
-    expect(session('statement_import.always'))->toBeNull();
+    expect(session('statement_import.months.2026-06.always'))->toBeEmpty();
 });
 
 test('answers 409 when nothing is pending', function () {
     $this->actingAs($this->user);
 
-    $this->postJson(route('upload.assign'), ['entry' => 0, 'group' => 'other'])
+    $this->postJson(route('upload.assign', '2026-06'), ['entry' => 0, 'group' => 'other'])
         ->assertConflict()
         ->assertJson(['redirect' => route('upload')]);
 
-    $this->postJson(route('upload.always'), ['entry' => 0, 'always' => true])
+    $this->postJson(route('upload.always', '2026-06'), ['entry' => 0, 'always' => true])
         ->assertConflict()
         ->assertJson(['redirect' => route('upload')]);
 });
@@ -161,10 +161,10 @@ test('answers 409 when nothing is pending', function () {
 test('keeps the pending import while assigning', function () {
     uploadForReview();
 
-    $this->postJson(route('upload.assign'), ['entry' => 65, 'group' => 'other'])->assertOk();
-    $this->postJson(route('upload.always'), ['entry' => 65, 'always' => true])->assertOk();
+    $this->postJson(route('upload.assign', '2026-06'), ['entry' => 65, 'group' => 'other'])->assertOk();
+    $this->postJson(route('upload.always', '2026-06'), ['entry' => 65, 'always' => true])->assertOk();
 
-    $html = $this->get(route('upload.review'))->assertOk()->getContent();
+    $html = $this->get(route('upload.review', '2026-06'))->assertOk()->getContent();
 
     expect(hasAttribute(openingTag($html, 'input', 'data-always'), 'checked'))->toBeTrue();
 });
@@ -175,8 +175,8 @@ test('applies always to the other unassigned entries of the merchant', function 
 
     expect(count($tegut))->toBeGreaterThanOrEqual(2);
 
-    $this->postJson(route('upload.assign'), ['entry' => $tegut[0], 'group' => 'groceries'])->assertOk();
-    $response = $this->postJson(route('upload.always'), ['entry' => $tegut[0], 'always' => true])
+    $this->postJson(route('upload.assign', '2026-06'), ['entry' => $tegut[0], 'group' => 'groceries'])->assertOk();
+    $response = $this->postJson(route('upload.always', '2026-06'), ['entry' => $tegut[0], 'always' => true])
         ->assertOk()
         ->assertJsonPath('open', 65 - count($tegut));
 
@@ -185,17 +185,17 @@ test('applies always to the other unassigned entries of the merchant', function 
             ->assertJsonPath("entries.$i.always", true);
     }
 
-    expect(session('statement_import.always'))->toBe(['TEGUT' => ['merchant' => 'TEGUT', 'group_key' => 'groceries']]);
+    expect(session('statement_import.months.2026-06.always'))->toBe(['TEGUT' => ['merchant' => 'TEGUT', 'group_key' => 'groceries']]);
 });
 
 test('returns followers to unassigned when always is unticked', function () {
     uploadForReview(seeded: false);
     $tegut = tegutIndexes();
 
-    $this->postJson(route('upload.assign'), ['entry' => $tegut[0], 'group' => 'groceries'])->assertOk();
-    $this->postJson(route('upload.always'), ['entry' => $tegut[0], 'always' => true])->assertOk();
+    $this->postJson(route('upload.assign', '2026-06'), ['entry' => $tegut[0], 'group' => 'groceries'])->assertOk();
+    $this->postJson(route('upload.always', '2026-06'), ['entry' => $tegut[0], 'always' => true])->assertOk();
 
-    $this->postJson(route('upload.always'), ['entry' => $tegut[0], 'always' => false])
+    $this->postJson(route('upload.always', '2026-06'), ['entry' => $tegut[0], 'always' => false])
         ->assertOk()
         ->assertJsonPath("entries.{$tegut[0]}.group", 'groceries')
         ->assertJsonPath("entries.{$tegut[1]}.group", null)
@@ -205,15 +205,15 @@ test('returns followers to unassigned when always is unticked', function () {
 test('blocks confirm while entries are unassigned', function () {
     uploadForReview();
 
-    $this->post(route('upload.confirm'))
-        ->assertRedirect(route('upload.review'))
+    $this->post(route('upload.confirm', '2026-06'))
+        ->assertRedirect(route('upload.review', '2026-06'))
         ->assertSessionHas('review_error', '1 entry still needs a group.');
 
     expect(session('statement_import'))->not->toBeNull()
         ->and(Statement::count())->toBe(0)
         ->and(Transaction::count())->toBe(0);
 
-    $html = $this->get(route('upload.review'))->assertOk()->getContent();
+    $html = $this->get(route('upload.review', '2026-06'))->assertOk()->getContent();
 
     expect($html)->toMatch('/<div[^>]*data-review-error[^>]*>.*?1 entry still needs a group\./s');
 });
@@ -221,7 +221,7 @@ test('blocks confirm while entries are unassigned', function () {
 test('counts all open entries when blocking confirm', function () {
     uploadForReview(seeded: false);
 
-    $this->post(route('upload.confirm'))
+    $this->post(route('upload.confirm', '2026-06'))
         ->assertSessionHas('review_error', '65 entries still need a group.');
 
     expect(Statement::count())->toBe(0);
@@ -230,9 +230,9 @@ test('counts all open entries when blocking confirm', function () {
 test('does not need groups for income and ignored entries', function () {
     uploadForReview();
 
-    $this->postJson(route('upload.assign'), ['entry' => 65, 'group' => 'other'])->assertOk();
+    $this->postJson(route('upload.assign', '2026-06'), ['entry' => 65, 'group' => 'other'])->assertOk();
 
-    $this->post(route('upload.confirm'))
+    $this->post(route('upload.confirm', '2026-06'))
         ->assertRedirect(route('upload'))
         ->assertSessionHas('status', 'June 2026 imported · 69 entries');
 
@@ -248,8 +248,8 @@ test('does not need groups for income and ignored entries', function () {
 test('stores the manual assignment on confirm', function () {
     uploadForReview();
 
-    $this->postJson(route('upload.assign'), ['entry' => 65, 'group' => 'other'])->assertOk();
-    $this->post(route('upload.confirm'))->assertRedirect(route('upload'));
+    $this->postJson(route('upload.assign', '2026-06'), ['entry' => 65, 'group' => 'other'])->assertOk();
+    $this->post(route('upload.confirm', '2026-06'))->assertRedirect(route('upload'));
 
     $transfer = Transaction::where('amount_cents', -20000)->sole();
 
@@ -264,12 +264,12 @@ test('stores the manual assignment on confirm', function () {
 test('creates the rule only when ticked and only on confirm', function () {
     uploadForReview();
 
-    $this->postJson(route('upload.assign'), ['entry' => 65, 'group' => 'other'])->assertOk();
-    $this->postJson(route('upload.always'), ['entry' => 65, 'always' => true])->assertOk();
+    $this->postJson(route('upload.assign', '2026-06'), ['entry' => 65, 'group' => 'other'])->assertOk();
+    $this->postJson(route('upload.always', '2026-06'), ['entry' => 65, 'always' => true])->assertOk();
 
     expect(manualRules()->count())->toBe(0);
 
-    $this->post(route('upload.confirm'))->assertRedirect(route('upload'));
+    $this->post(route('upload.confirm', '2026-06'))->assertRedirect(route('upload'));
 
     $rule = manualRules()->sole();
 
@@ -288,10 +288,10 @@ test('creates the rule only when ticked and only on confirm', function () {
 test('does not create the rule when unticked again', function () {
     uploadForReview();
 
-    $this->postJson(route('upload.assign'), ['entry' => 65, 'group' => 'other'])->assertOk();
-    $this->postJson(route('upload.always'), ['entry' => 65, 'always' => true])->assertOk();
-    $this->postJson(route('upload.always'), ['entry' => 65, 'always' => false])->assertOk();
-    $this->post(route('upload.confirm'))->assertRedirect(route('upload'));
+    $this->postJson(route('upload.assign', '2026-06'), ['entry' => 65, 'group' => 'other'])->assertOk();
+    $this->postJson(route('upload.always', '2026-06'), ['entry' => 65, 'always' => true])->assertOk();
+    $this->postJson(route('upload.always', '2026-06'), ['entry' => 65, 'always' => false])->assertOk();
+    $this->post(route('upload.confirm', '2026-06'))->assertRedirect(route('upload'));
 
     $transfer = Transaction::where('amount_cents', -20000)->sole();
 
@@ -303,8 +303,8 @@ test('does not create the rule when unticked again', function () {
 test('does not create the rule on discard', function () {
     uploadForReview();
 
-    $this->postJson(route('upload.assign'), ['entry' => 65, 'group' => 'other'])->assertOk();
-    $this->postJson(route('upload.always'), ['entry' => 65, 'always' => true])->assertOk();
+    $this->postJson(route('upload.assign', '2026-06'), ['entry' => 65, 'group' => 'other'])->assertOk();
+    $this->postJson(route('upload.always', '2026-06'), ['entry' => 65, 'always' => true])->assertOk();
     $this->post(route('upload.discard'))->assertRedirect(route('upload'));
 
     expect(manualRules()->count())->toBe(0);
@@ -313,31 +313,31 @@ test('does not create the rule on discard', function () {
 test('discards the picks when leaving the review', function () {
     uploadForReview();
 
-    $this->postJson(route('upload.assign'), ['entry' => 65, 'group' => 'other'])->assertOk();
+    $this->postJson(route('upload.assign', '2026-06'), ['entry' => 65, 'group' => 'other'])->assertOk();
     $this->get(route('overview'));
 
-    $this->postJson(route('upload.assign'), ['entry' => 65, 'group' => 'other'])->assertConflict();
+    $this->postJson(route('upload.assign', '2026-06'), ['entry' => 65, 'group' => 'other'])->assertConflict();
 });
 
 test('uses the manual rule on the next import', function () {
     uploadForReview();
 
-    $this->postJson(route('upload.assign'), ['entry' => 65, 'group' => 'other'])->assertOk();
-    $this->postJson(route('upload.always'), ['entry' => 65, 'always' => true])->assertOk();
-    $this->post(route('upload.confirm'))->assertRedirect(route('upload'));
+    $this->postJson(route('upload.assign', '2026-06'), ['entry' => 65, 'group' => 'other'])->assertOk();
+    $this->postJson(route('upload.always', '2026-06'), ['entry' => 65, 'always' => true])->assertOk();
+    $this->post(route('upload.confirm', '2026-06'))->assertRedirect(route('upload'));
 
     $rule = manualRules()->sole();
 
     uploadForReview(seeded: false);
 
-    expect(session('statement_import.assignments.65'))->toBe([
+    expect(session('statement_import.months.2026-06.assignments.65'))->toBe([
         'group_key' => 'other',
         'share_divisor' => 1,
         'ignored' => false,
         'rule_id' => $rule->id,
     ]);
 
-    $html = $this->get(route('upload.review'))
+    $html = $this->get(route('upload.review', '2026-06'))
         ->assertOk()
         ->assertSee('Replace import')
         ->getContent();
@@ -346,7 +346,7 @@ test('uses the manual rule on the next import', function () {
         ->and($html)->not->toContain('data-review-counter')
         ->and(hasAttribute(openingTag($html, 'button', 'data-confirm'), 'disabled'))->toBeFalse();
 
-    $this->post(route('upload.confirm'))->assertRedirect(route('upload'));
+    $this->post(route('upload.confirm', '2026-06'))->assertRedirect(route('upload'));
 
     $transfer = Transaction::where('amount_cents', -20000)->sole();
 
@@ -359,11 +359,11 @@ test('stores the always group for every entry of the merchant', function () {
     uploadForReview(seeded: false);
     $tegut = tegutIndexes();
 
-    $this->postJson(route('upload.assign'), ['entry' => $tegut[0], 'group' => 'groceries'])->assertOk();
-    $this->postJson(route('upload.always'), ['entry' => $tegut[0], 'always' => true])->assertOk();
+    $this->postJson(route('upload.assign', '2026-06'), ['entry' => $tegut[0], 'group' => 'groceries'])->assertOk();
+    $this->postJson(route('upload.always', '2026-06'), ['entry' => $tegut[0], 'always' => true])->assertOk();
     assignOpenEntries('other');
 
-    $this->post(route('upload.confirm'))->assertRedirect(route('upload'));
+    $this->post(route('upload.confirm', '2026-06'))->assertRedirect(route('upload'));
 
     $rule = manualRules()->sole();
     $tegutTransactions = Transaction::where('merchant', 'TEGUT')->get();

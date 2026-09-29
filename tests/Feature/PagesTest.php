@@ -15,7 +15,7 @@ test('renders each app page for the user', function (string $name, string $title
 })->with([
     ['overview', 'No data yet'],
     ['trends', 'No trends yet'],
-    ['upload', 'Drop your ING statement here'],
+    ['upload', 'Drop your ING statements here'],
 ]);
 
 test('shows the navigation with the current page marked', function () {

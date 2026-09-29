@@ -23,7 +23,7 @@ class StoreStatementUploadRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'statement' => ['required', 'file', 'mimes:pdf', 'max:10240'],
+            'statements' => ['required', 'array', 'max:12'],
         ];
     }
 
@@ -37,11 +37,9 @@ class StoreStatementUploadRequest extends FormRequest
         $message = 'Please choose a PDF file (max. 10 MB).';
 
         return [
-            'statement.required' => $message,
-            'statement.file' => $message,
-            'statement.mimes' => $message,
-            'statement.max' => $message,
-            'statement.uploaded' => $message,
+            'statements.required' => $message,
+            'statements.array' => $message,
+            'statements.max' => 'You can upload up to 12 statements at once.',
         ];
     }
 }

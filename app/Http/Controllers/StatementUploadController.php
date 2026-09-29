@@ -13,69 +13,132 @@ use App\Models\Rule;
 use App\Models\Statement;
 use App\Services\Rules\RuleMatch;
 use App\Services\Rules\RuleMatcher;
+use App\Services\Statements\ImportBatch;
 use App\Services\Statements\IngStatementParser;
 use App\Services\Statements\ParsedEntry;
-use App\Services\Statements\ParsedStatement;
 use App\Services\Statements\ReviewQueue;
 use App\Services\Statements\StatementParseException;
 use App\Support\Period;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Http\Response;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 
 class StatementUploadController extends Controller
 {
+    private const INVALID_FILE = 'Please choose a PDF file (max. 10 MB).';
+
+    private const NOT_ING = "This doesn't look like an ING statement.";
+
     /**
      * Show the drop zone and the months imported so far.
      */
-    public function create(): View
+    public function create(Request $request): View
     {
         return view('pages.upload', [
             'imported' => Statement::query()->whereNotNull('confirmed_at')->orderByDesc('period')->pluck('period'),
+            'tooLarge' => $request->boolean('too_large'),
+            'maxUploadBytes' => (int) UploadedFile::getMaxFilesize(),
+            'maxFiles' => 12,
         ]);
     }
 
     /**
-     * Parse the uploaded PDF and keep the result in the session for review.
+     * Parse the uploaded PDFs and keep the valid months in the session for review, reporting the others.
      */
     public function store(StoreStatementUploadRequest $request, IngStatementParser $parser): RedirectResponse
     {
-        // The PDF is only read from its temp file, which PHP removes after the request.
-        try {
-            $parsed = $parser->parse($request->file('statement')->getRealPath());
-        } catch (StatementParseException) {
-            return back()->withErrors(['statement' => "This doesn't look like an ING statement."]);
+        $files = array_values(array_filter($request->file('statements', []), fn ($file) => $file instanceof UploadedFile));
+
+        if ($files === []) {
+            return redirect()->route('upload')->withErrors(['statements' => self::INVALID_FILE]);
         }
 
-        $matches = RuleMatcher::fromDatabase()->matchAll($parsed->entries);
+        $matcher = RuleMatcher::fromDatabase();
+        $kept = [];
+        $failed = [];
+        $reasons = [];
 
-        session([DiscardPendingStatementImport::SESSION_KEY => $parsed->toArray() + [
-            'assignments' => array_map(fn (RuleMatch $match) => $match->toArray(), $matches),
-        ]]);
+        foreach ($files as $file) {
+            $reason = $this->rejectReason($file);
 
-        return redirect()->route('upload.review');
+            if ($reason === null) {
+                try {
+                    // The PDF is only read from its temp file, which PHP removes after the request.
+                    $parsed = $parser->parse($file->getRealPath());
+
+                    if (isset($kept[$parsed->period])) {
+                        $reason = 'duplicate of '.Period::label($parsed->period);
+                    } else {
+                        $kept[$parsed->period] = ['statement' => $parsed, 'assignments' => $matcher->matchAll($parsed->entries)];
+                    }
+                } catch (StatementParseException) {
+                    $reason = "doesn't look like an ING statement";
+                }
+            }
+
+            if ($reason !== null) {
+                $reasons[] = $reason;
+                $failed[] = $file->getClientOriginalName().' – '.$reason;
+            }
+        }
+
+        if ($kept === []) {
+            if (count($files) === 1) {
+                return redirect()->route('upload')->withErrors([
+                    'statements' => $reasons[0] === "doesn't look like an ING statement" ? self::NOT_ING : self::INVALID_FILE,
+                ]);
+            }
+
+            return redirect()->route('upload')->withErrors([
+                'statements' => 'None of the files could be imported.',
+                'files' => $failed,
+            ]);
+        }
+
+        $batch = ImportBatch::start(array_values($kept), $failed);
+        $this->saveBatch($batch);
+
+        return redirect()->route('upload.review', $batch->nextPending());
     }
 
     /**
-     * Show the pending import.
+     * Show one month of the pending import.
      */
-    public function review(): View|RedirectResponse
+    public function review(?string $period = null): View|RedirectResponse
     {
-        $statement = $this->pending();
+        $batch = $this->batch();
 
-        if ($statement === null) {
+        if ($batch === null) {
             return redirect()->route('upload');
         }
+
+        if ($period === null || ! $batch->isPending($period)) {
+            $next = $batch->nextPending();
+
+            if ($next === null) {
+                session()->forget(DiscardPendingStatementImport::SESSION_KEY);
+
+                return redirect()->route('upload');
+            }
+
+            return redirect()->route('upload.review', $next);
+        }
+
+        $statement = $batch->statement($period);
 
         $existing = Statement::query()
             ->where('number', $statement->number)
             ->where('period', $statement->period)
             ->exists();
 
-        $queue = $this->reviewQueue($statement);
-        $matches = $this->pendingAssignments($statement);
+        $queue = $batch->reviewQueue($period);
+        $matches = $batch->assignments($period);
         $queueRows = [];
         $rows = [];
 
@@ -94,25 +157,34 @@ class StatementUploadController extends Controller
             'rows' => $rows,
             'queueState' => $queue->state(),
             'open' => $queue->openCount(),
+            'period' => $period,
+            'isBatch' => $batch->isBatch(),
+            'steps' => $batch->steps(),
+            'failed' => $batch->showsNotice() ? $batch->failed() : [],
         ]);
     }
 
     /**
-     * Assign a group to an entry of the review queue.
+     * Assign a group to an entry of the month's review queue.
      */
-    public function assign(AssignReviewEntryRequest $request): JsonResponse
+    public function assign(AssignReviewEntryRequest $request, string $period): JsonResponse
     {
-        $statement = $this->pending();
+        $batch = $this->batch();
 
-        if ($statement === null) {
+        if ($batch === null) {
             return response()->json(['redirect' => route('upload')], 409);
         }
 
-        $queue = $this->reviewQueue($statement);
+        if (! $batch->isPending($period)) {
+            return response()->json(['redirect' => route('upload.review')], 409);
+        }
+
+        $queue = $batch->reviewQueue($period);
         $index = $this->queuedIndex($request->integer('entry'), $queue);
 
         $queue->pick($index, $request->string('group')->toString());
-        $this->storeReviewQueue($queue);
+        $batch->storeReviewQueue($period, $queue);
+        $this->saveBatch($batch);
 
         return response()->json($queue->state());
     }
@@ -120,15 +192,19 @@ class StatementUploadController extends Controller
     /**
      * Tick or untick "always use this group" for the merchant of a queue entry.
      */
-    public function always(ToggleAlwaysRuleRequest $request): JsonResponse
+    public function always(ToggleAlwaysRuleRequest $request, string $period): JsonResponse
     {
-        $statement = $this->pending();
+        $batch = $this->batch();
 
-        if ($statement === null) {
+        if ($batch === null) {
             return response()->json(['redirect' => route('upload')], 409);
         }
 
-        $queue = $this->reviewQueue($statement);
+        if (! $batch->isPending($period)) {
+            return response()->json(['redirect' => route('upload.review')], 409);
+        }
+
+        $queue = $batch->reviewQueue($period);
         $index = $this->queuedIndex($request->integer('entry'), $queue);
 
         if ($request->boolean('always') && $queue->groupFor($index) === null) {
@@ -136,26 +212,32 @@ class StatementUploadController extends Controller
         }
 
         $queue->setAlways($index, $request->boolean('always'));
-        $this->storeReviewQueue($queue);
+        $batch->storeReviewQueue($period, $queue);
+        $this->saveBatch($batch);
 
         return response()->json($queue->state());
     }
 
     /**
-     * Store the pending import, replacing an earlier import of the same statement.
+     * Store the month, replacing an earlier import of the same statement, then move on to the next month.
      */
-    public function confirm(): RedirectResponse
+    public function confirm(string $period): RedirectResponse
     {
-        $parsed = $this->pending();
+        $batch = $this->batch();
 
-        if ($parsed === null) {
+        if ($batch === null) {
             return redirect()->route('upload');
         }
 
-        $queue = $this->reviewQueue($parsed);
+        if (! $batch->isPending($period)) {
+            return redirect()->route('upload.review');
+        }
+
+        $parsed = $batch->statement($period);
+        $queue = $batch->reviewQueue($period);
 
         if (($open = $queue->openCount()) > 0) {
-            return redirect()->route('upload.review')
+            return redirect()->route('upload.review', $period)
                 ->with('review_error', $open === 1 ? '1 entry still needs a group.' : "{$open} entries still need a group.");
         }
 
@@ -199,48 +281,130 @@ class StatementUploadController extends Controller
             ], $parsed->entries, $queue->finalMatches($ruleIds)));
         });
 
-        session()->forget(DiscardPendingStatementImport::SESSION_KEY);
+        $batch->markConfirmed($period);
+        // After the transaction, so the manual rules saved above reach the months still waiting.
+        $batch->applyRules(RuleMatcher::fromDatabase());
 
-        return redirect()->route('upload')
-            ->with('status', Period::label($parsed->period).' imported · '.count($parsed->entries).' entries');
+        return $this->advance($batch, $period);
     }
 
     /**
-     * Drop the pending import.
+     * Leave the month out of the import and move on to the next one.
+     */
+    public function skip(string $period): RedirectResponse
+    {
+        $batch = $this->batch();
+
+        if ($batch === null) {
+            return redirect()->route('upload');
+        }
+
+        if (! $batch->isPending($period)) {
+            return redirect()->route('upload.review');
+        }
+
+        $batch->markSkipped($period);
+
+        return $this->advance($batch, $period);
+    }
+
+    /**
+     * Drop the months not confirmed yet.
      */
     public function discard(): RedirectResponse
     {
+        $batch = $this->batch();
+
+        if ($batch === null) {
+            return redirect()->route('upload');
+        }
+
+        $summary = $batch->summary(discarding: true);
         session()->forget(DiscardPendingStatementImport::SESSION_KEY);
 
-        return redirect()->route('upload');
-    }
-
-    private function pending(): ?ParsedStatement
-    {
-        $data = session(DiscardPendingStatementImport::SESSION_KEY);
-
-        return $data === null ? null : ParsedStatement::fromArray($data);
-    }
-
-    private function reviewQueue(ParsedStatement $statement): ReviewQueue
-    {
-        return new ReviewQueue(
-            $statement->entries,
-            $this->pendingAssignments($statement),
-            session(DiscardPendingStatementImport::SESSION_KEY.'.picks', []),
-            session(DiscardPendingStatementImport::SESSION_KEY.'.always', []),
-        );
+        return $this->toUpload($summary);
     }
 
     /**
-     * Write picks and "always" choices as whole arrays: normalized merchants may contain dots.
+     * Hide the failed-files notice for the rest of the batch.
      */
-    private function storeReviewQueue(ReviewQueue $queue): void
+    public function dismissNotice(Request $request): JsonResponse|RedirectResponse|Response
     {
-        session([
-            DiscardPendingStatementImport::SESSION_KEY.'.picks' => $queue->picks(),
-            DiscardPendingStatementImport::SESSION_KEY.'.always' => $queue->always(),
-        ]);
+        $batch = $this->batch();
+
+        if ($batch === null) {
+            return $request->expectsJson()
+                ? response()->json(['redirect' => route('upload')], 409)
+                : redirect()->route('upload');
+        }
+
+        $batch->dismissNotice();
+        $this->saveBatch($batch);
+
+        return $request->expectsJson()
+            ? response()->noContent()
+            : redirect()->back(fallback: route('upload.review'));
+    }
+
+    /**
+     * Why a file is skipped before parsing, or null when it may be parsed.
+     */
+    private function rejectReason(UploadedFile $file): ?string
+    {
+        $validator = Validator::make(['file' => $file], ['file' => ['file', 'mimes:pdf', 'max:10240']]);
+
+        if ($validator->passes()) {
+            return null;
+        }
+
+        $failed = $validator->failed()['file'] ?? [];
+
+        return match (true) {
+            isset($failed['File']) || isset($failed['Uploaded']) => "couldn't be uploaded",
+            isset($failed['Mimes']) => 'not a PDF',
+            isset($failed['Max']) => 'larger than 10 MB',
+            default => null,
+        };
+    }
+
+    /**
+     * Go to the next unfinished month, or end the batch on Upload with its summary.
+     */
+    private function advance(ImportBatch $batch, string $after): RedirectResponse
+    {
+        $next = $batch->nextPending($after);
+
+        if ($next === null) {
+            session()->forget(DiscardPendingStatementImport::SESSION_KEY);
+
+            return $this->toUpload($batch->summary());
+        }
+
+        $this->saveBatch($batch);
+
+        return redirect()->route('upload.review', $next);
+    }
+
+    private function toUpload(?string $status): RedirectResponse
+    {
+        $redirect = redirect()->route('upload');
+
+        return $status === null ? $redirect : $redirect->with('status', $status);
+    }
+
+    private function batch(): ?ImportBatch
+    {
+        $data = session(DiscardPendingStatementImport::SESSION_KEY);
+
+        return is_array($data) && isset($data['months']) ? ImportBatch::fromArray($data) : null;
+    }
+
+    /**
+     * Written as a whole array: normalized merchants in "always" choices may contain dots.
+     */
+    private function saveBatch(ImportBatch $batch): void
+    {
+        session([DiscardPendingStatementImport::SESSION_KEY => $batch->toArray()]);
     }
 
     private function queuedIndex(int $index, ReviewQueue $queue): int
@@ -250,21 +414,5 @@ class StatementUploadController extends Controller
         }
 
         return $index;
-    }
-
-    /**
-     * The rule results matched at upload time, one per entry.
-     *
-     * @return list<RuleMatch>
-     */
-    private function pendingAssignments(ParsedStatement $statement): array
-    {
-        $assignments = session(DiscardPendingStatementImport::SESSION_KEY.'.assignments');
-
-        if (! is_array($assignments) || count($assignments) !== count($statement->entries)) {
-            return array_map(fn () => RuleMatch::none(), $statement->entries);
-        }
-
-        return array_map(RuleMatch::fromArray(...), array_values($assignments));
     }
 }

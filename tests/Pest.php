@@ -10,6 +10,8 @@ use App\Services\Statements\ParsedStatement;
 use Database\Seeders\RuleSeeder;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Testing\TestResponse;
+use Tests\Support\RedatingStatementParser;
 use Tests\TestCase;
 
 pest()->extend(TestCase::class)
@@ -22,12 +24,35 @@ function fixturePath(string $name): string
 }
 
 /** Upload of a temp copy of the fixture, so the real fixture is never touched. */
-function statementUpload(string $fixture = 'ing-2026-06.pdf'): UploadedFile
+function statementUpload(string $fixture = 'ing-2026-06.pdf', string $name = 'statement.pdf'): UploadedFile
 {
     $tmp = tempnam(sys_get_temp_dir(), 'stmt');
     copy(fixturePath($fixture), $tmp);
 
-    return new UploadedFile($tmp, 'statement.pdf', 'application/pdf', null, true);
+    return new UploadedFile($tmp, $name, 'application/pdf', null, true);
+}
+
+/** Upload of the June fixture that the bound parser re-dates to $period. */
+function monthUpload(string $period, ?string $name = null): UploadedFile
+{
+    if (! app()->bound(IngStatementParser::class) || ! app(IngStatementParser::class) instanceof RedatingStatementParser) {
+        app()->instance(IngStatementParser::class, new RedatingStatementParser);
+    }
+
+    $upload = statementUpload(name: $name ?? "Kontoauszug_{$period}.pdf");
+    app(IngStatementParser::class)->redate($upload->getRealPath(), $period);
+
+    return $upload;
+}
+
+/**
+ * Uploads one re-dated fixture per period, in the given order.
+ *
+ * @param  list<string>  $periods
+ */
+function uploadMonths(array $periods): TestResponse
+{
+    return test()->post(route('upload.store'), ['statements' => array_map(fn (string $period) => monthUpload($period), $periods)]);
 }
 
 /** A valid one-page PDF that is not an ING statement. */
@@ -77,10 +102,10 @@ function entry(int $amountCents, ?string $counterparty = null, string $purpose =
     );
 }
 
-/** Assigns every still-open queue entry of the pending import to $group via the JSON route. */
-function assignOpenEntries(string $group = 'other'): void
+/** Assigns every still-open queue entry of the pending month to $group via the JSON route. */
+function assignOpenEntries(string $group = 'other', string $period = '2026-06'): void
 {
-    $import = session('statement_import');
+    $import = session("statement_import.months.{$period}");
 
     foreach ($import['assignments'] as $i => $assignment) {
         $merchantKey = TextNormalizer::normalize($import['entries'][$i]['merchant']);
@@ -91,7 +116,7 @@ function assignOpenEntries(string $group = 'other'): void
             && ! isset(($import['always'] ?? [])[$merchantKey]);
 
         if ($open) {
-            test()->postJson(route('upload.assign'), ['entry' => $i, 'group' => $group])->assertOk();
+            test()->postJson(route('upload.assign', $period), ['entry' => $i, 'group' => $group])->assertOk();
         }
     }
 }
@@ -100,9 +125,9 @@ function assignOpenEntries(string $group = 'other'): void
 function importFixtureStatement(): void
 {
     test()->seed(RuleSeeder::class);
-    test()->post(route('upload.store'), ['statement' => statementUpload()])->assertRedirect(route('upload.review'));
+    test()->post(route('upload.store'), ['statements' => [statementUpload()]])->assertRedirect(route('upload.review', '2026-06'));
     assignOpenEntries('other');
-    test()->post(route('upload.confirm'))->assertRedirect(route('upload'));
+    test()->post(route('upload.confirm', '2026-06'))->assertRedirect(route('upload'));
 }
 
 /**

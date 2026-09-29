@@ -23,9 +23,11 @@ Route::middleware(['auth', DiscardPendingStatementImport::class])->group(functio
 
     Route::get('/upload', [StatementUploadController::class, 'create'])->name('upload');
     Route::post('/upload', [StatementUploadController::class, 'store'])->name('upload.store');
-    Route::get('/upload/review', [StatementUploadController::class, 'review'])->name('upload.review');
-    Route::post('/upload/confirm', [StatementUploadController::class, 'confirm'])->name('upload.confirm');
+    Route::get('/upload/review/{period?}', [StatementUploadController::class, 'review'])->where('period', '[0-9]{4}-[0-9]{2}')->name('upload.review');
+    Route::post('/upload/review/{period}/confirm', [StatementUploadController::class, 'confirm'])->where('period', '[0-9]{4}-[0-9]{2}')->name('upload.confirm');
+    Route::post('/upload/review/{period}/skip', [StatementUploadController::class, 'skip'])->where('period', '[0-9]{4}-[0-9]{2}')->name('upload.skip');
+    Route::post('/upload/review/{period}/assign', [StatementUploadController::class, 'assign'])->where('period', '[0-9]{4}-[0-9]{2}')->name('upload.assign');
+    Route::post('/upload/review/{period}/always', [StatementUploadController::class, 'always'])->where('period', '[0-9]{4}-[0-9]{2}')->name('upload.always');
     Route::post('/upload/discard', [StatementUploadController::class, 'discard'])->name('upload.discard');
-    Route::post('/upload/assign', [StatementUploadController::class, 'assign'])->name('upload.assign');
-    Route::post('/upload/always', [StatementUploadController::class, 'always'])->name('upload.always');
+    Route::post('/upload/notice/dismiss', [StatementUploadController::class, 'dismissNotice'])->name('upload.notice.dismiss');
 });

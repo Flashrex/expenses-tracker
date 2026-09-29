@@ -15,14 +15,14 @@ beforeEach(function () {
 function uploadJuneStatement(): void
 {
     test()->actingAs(test()->user)
-        ->post(route('upload.store'), ['statement' => statementUpload()])
-        ->assertRedirect(route('upload.review'));
+        ->post(route('upload.store'), ['statements' => [statementUpload()]])
+        ->assertRedirect(route('upload.review', '2026-06'));
 }
 
 test('redirects guests from the upload routes', function () {
-    $this->get('/upload/review')->assertRedirect(route('login'));
+    $this->get('/upload/review/2026-06')->assertRedirect(route('login'));
     $this->post('/upload')->assertRedirect(route('login'));
-    $this->post('/upload/confirm')->assertRedirect(route('login'));
+    $this->post('/upload/review/2026-06/confirm')->assertRedirect(route('login'));
     $this->post('/upload/discard')->assertRedirect(route('login'));
 });
 
@@ -30,8 +30,9 @@ test('shows the drop zone', function () {
     $this->actingAs($this->user)
         ->get(route('upload'))
         ->assertOk()
-        ->assertSee('Drop your ING statement here')
-        ->assertSee('name="statement"', false)
+        ->assertSee('Drop your ING statements here')
+        ->assertSee('name="statements[]"', false)
+        ->assertSee('multiple', false)
         ->assertSee('accept="application/pdf,.pdf"', false)
         ->assertSee('enctype="multipart/form-data"', false)
         ->assertDontSee('Imported');
@@ -51,29 +52,29 @@ test('shows imported months as chips', function () {
 
 test('rejects a file that is not a pdf', function () {
     $this->actingAs($this->user)
-        ->post(route('upload.store'), ['statement' => UploadedFile::fake()->create('a.txt', 10, 'text/plain')])
-        ->assertSessionHasErrors(['statement' => 'Please choose a PDF file (max. 10 MB).'])
+        ->post(route('upload.store'), ['statements' => [UploadedFile::fake()->create('a.txt', 10, 'text/plain')]])
+        ->assertSessionHasErrors(['statements' => 'Please choose a PDF file (max. 10 MB).'])
         ->assertSessionMissing('statement_import');
 });
 
 test('rejects a missing file', function () {
     $this->actingAs($this->user)
         ->post(route('upload.store'), [])
-        ->assertSessionHasErrors(['statement' => 'Please choose a PDF file (max. 10 MB).']);
+        ->assertSessionHasErrors(['statements' => 'Please choose a PDF file (max. 10 MB).']);
 });
 
 test('rejects a pdf larger than 10 MB', function () {
     $this->actingAs($this->user)
-        ->post(route('upload.store'), ['statement' => UploadedFile::fake()->create('big.pdf', 10241, 'application/pdf')])
-        ->assertSessionHasErrors(['statement' => 'Please choose a PDF file (max. 10 MB).']);
+        ->post(route('upload.store'), ['statements' => [UploadedFile::fake()->create('big.pdf', 10241, 'application/pdf')]])
+        ->assertSessionHasErrors(['statements' => 'Please choose a PDF file (max. 10 MB).']);
 });
 
 test('rejects a pdf that is not an ING statement', function () {
     $this->actingAs($this->user)
         ->from(route('upload'))
-        ->post(route('upload.store'), ['statement' => UploadedFile::fake()->createWithContent('x.pdf', blankPdf())])
+        ->post(route('upload.store'), ['statements' => [UploadedFile::fake()->createWithContent('x.pdf', blankPdf())]])
         ->assertRedirect(route('upload'))
-        ->assertSessionHasErrors(['statement' => "This doesn't look like an ING statement."]);
+        ->assertSessionHasErrors(['statements' => "This doesn't look like an ING statement."]);
 
     expect(Statement::count())->toBe(0);
 });
@@ -83,12 +84,12 @@ test('parses the upload and shows the review', function () {
 
     uploadJuneStatement();
 
-    expect(session('statement_import.entries'))->toHaveCount(69)
+    expect(session('statement_import.months.2026-06.entries'))->toHaveCount(69)
         ->and(Storage::disk('local')->allFiles())->toBeEmpty()
         ->and(Statement::count())->toBe(0)
         ->and(Transaction::count())->toBe(0);
 
-    $response = $this->get(route('upload.review'))
+    $response = $this->get(route('upload.review', '2026-06'))
         ->assertOk()
         ->assertSee('June 2026')
         ->assertSee('Statement 6 · 69 entries')
@@ -111,15 +112,15 @@ test('parses the upload and shows the review', function () {
 test('keeps the pending import when the review is reloaded', function () {
     uploadJuneStatement();
 
-    $this->get(route('upload.review'))->assertOk();
-    $this->get(route('upload.review'))->assertOk();
+    $this->get(route('upload.review', '2026-06'))->assertOk();
+    $this->get(route('upload.review', '2026-06'))->assertOk();
 });
 
 test('redirects to upload when nothing is pending', function () {
     $this->actingAs($this->user);
 
-    $this->get(route('upload.review'))->assertRedirect(route('upload'));
-    $this->post(route('upload.confirm'))->assertRedirect(route('upload'));
+    $this->get(route('upload.review', '2026-06'))->assertRedirect(route('upload'));
+    $this->post(route('upload.confirm', '2026-06'))->assertRedirect(route('upload'));
 
     expect(Statement::count())->toBe(0);
 });
@@ -128,7 +129,7 @@ test('stores the statement and entries on confirm', function () {
     uploadJuneStatement();
     assignOpenEntries();
 
-    $this->post(route('upload.confirm'))
+    $this->post(route('upload.confirm', '2026-06'))
         ->assertRedirect(route('upload'))
         ->assertSessionHas('status', 'June 2026 imported · 69 entries')
         ->assertSessionMissing('statement_import');
@@ -177,7 +178,7 @@ test('asks to replace an already imported statement', function () {
 
     uploadJuneStatement();
 
-    $this->get(route('upload.review'))
+    $this->get(route('upload.review', '2026-06'))
         ->assertSee('June 2026 (statement 6) is already imported. Confirming replaces it.')
         ->assertSee('Replace import')
         ->assertSee('Cancel')
@@ -191,7 +192,7 @@ test('replaces the existing statement on confirm', function () {
     uploadJuneStatement();
     assignOpenEntries();
 
-    $this->post(route('upload.confirm'))->assertRedirect(route('upload'));
+    $this->post(route('upload.confirm', '2026-06'))->assertRedirect(route('upload'));
 
     expect(Statement::count())->toBe(1)
         ->and((string) Statement::first()->id)->not->toBe((string) $old->id)
@@ -204,9 +205,9 @@ test('does not treat another month with the same number as duplicate', function 
 
     uploadJuneStatement();
 
-    $this->get(route('upload.review'))->assertDontSee('already imported');
+    $this->get(route('upload.review', '2026-06'))->assertDontSee('already imported');
     assignOpenEntries();
-    $this->post(route('upload.confirm'));
+    $this->post(route('upload.confirm', '2026-06'));
 
     expect(Statement::count())->toBe(2);
 });
@@ -225,7 +226,7 @@ test('discards the pending import when leaving the review', function (string $na
     uploadJuneStatement();
 
     $this->get(route($name))->assertSessionMissing('statement_import');
-    $this->get(route('upload.review'))->assertRedirect(route('upload'));
+    $this->get(route('upload.review', '2026-06'))->assertRedirect(route('upload'));
 
     expect(Statement::count())->toBe(0)
         ->and(Transaction::count())->toBe(0);
@@ -234,7 +235,7 @@ test('discards the pending import when leaving the review', function (string $na
 test('marks upload as active on the review page', function () {
     uploadJuneStatement();
 
-    $html = $this->get(route('upload.review'))->getContent();
+    $html = $this->get(route('upload.review', '2026-06'))->getContent();
 
     expect(substr_count($html, 'aria-current="page"'))->toBe(1)
         ->and(preg_match('/<a[^>]*href="'.preg_quote(route('upload'), '/').'"[^>]*aria-current="page"/', $html))->toBe(1);
@@ -249,7 +250,7 @@ test('groups entries on the review page', function () {
     $this->seed(RuleSeeder::class);
     uploadJuneStatement();
 
-    $response = $this->get(route('upload.review'))
+    $response = $this->get(route('upload.review', '2026-06'))
         ->assertOk()
         ->assertSee('Groceries & Personal Care')
         ->assertSee('ignored');
@@ -271,8 +272,8 @@ test('keeps the rule results in the pending import', function () {
     $this->seed(RuleSeeder::class);
     uploadJuneStatement();
 
-    expect(session('statement_import.assignments'))->toHaveCount(69)
-        ->and(session('statement_import.assignments')[1])->toBe([
+    expect(session('statement_import.months.2026-06.assignments'))->toHaveCount(69)
+        ->and(session('statement_import.months.2026-06.assignments')[1])->toBe([
             'group_key' => 'rent',
             'share_divisor' => 3,
             'ignored' => false,
@@ -285,7 +286,7 @@ test('stores the rule results on confirm', function () {
     uploadJuneStatement();
     assignOpenEntries();
 
-    $this->post(route('upload.confirm'))->assertRedirect(route('upload'));
+    $this->post(route('upload.confirm', '2026-06'))->assertRedirect(route('upload'));
 
     $rent = Transaction::where('amount_cents', -115820)->sole();
 
@@ -324,7 +325,7 @@ test('stores what was matched at upload time', function () {
 
     Rule::query()->delete();
 
-    $this->post(route('upload.confirm'))->assertRedirect(route('upload'));
+    $this->post(route('upload.confirm', '2026-06'))->assertRedirect(route('upload'));
 
     $rent = Transaction::where('amount_cents', -115820)->sole();
 
@@ -335,7 +336,7 @@ test('stores what was matched at upload time', function () {
 test('imports without rules', function () {
     uploadJuneStatement();
 
-    $html = $this->get(route('upload.review'))->assertOk()->getContent();
+    $html = $this->get(route('upload.review', '2026-06'))->assertOk()->getContent();
 
     expect(substr_count($html, 'data-review-entry='))->toBe(65)
         ->and(substr_count($html, 'data-assignment="income"'))->toBe(4)
@@ -343,7 +344,7 @@ test('imports without rules', function () {
 
     assignOpenEntries();
 
-    $this->post(route('upload.confirm'))->assertRedirect(route('upload'));
+    $this->post(route('upload.confirm', '2026-06'))->assertRedirect(route('upload'));
 
     foreach (Transaction::all() as $transaction) {
         expect($transaction->group_key)->toBe($transaction->direction === 'out' ? 'other' : null)

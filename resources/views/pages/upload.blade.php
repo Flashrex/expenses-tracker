@@ -7,31 +7,31 @@
             </div>
         @endif
 
-        <form method="POST" action="{{ route('upload.store') }}" enctype="multipart/form-data" x-data="{ dragging: false, busy: false }" x-ref="form">
+        <form method="POST" action="{{ route('upload.store') }}" enctype="multipart/form-data" x-data="uploadDropzone(@js(['maxFiles' => $maxFiles, 'maxBytes' => $maxUploadBytes]))" x-ref="form">
             @csrf
 
             <label
-                for="statement"
+                for="statements"
                 class="flex cursor-pointer flex-col items-center justify-center rounded-3xl border-2 border-dashed border-slate-300 bg-white px-6 py-16 text-center transition focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-emerald-600 dark:border-slate-700 dark:bg-slate-900 dark:focus-within:outline-emerald-400"
                 :class="dragging ? 'border-emerald-500 bg-emerald-50 dark:border-emerald-400 dark:bg-emerald-400/10' : 'hover:border-slate-400 dark:hover:border-slate-600'"
                 @dragover.prevent="dragging = true"
                 @dragleave.prevent="dragging = false"
-                @drop.prevent="dragging = false; $refs.input.files = $event.dataTransfer.files; busy = true; $refs.form.requestSubmit()"
+                @drop.prevent="dragging = false; choose($event.dataTransfer.files, true)"
             >
                 <div x-show="!busy" class="flex flex-col items-center">
                     <div class="flex size-14 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 dark:bg-emerald-400/10 dark:text-emerald-400">
                         <x-heroicon-o-arrow-up-tray class="size-7" />
                     </div>
-                    <p class="mt-4 text-lg font-semibold">Drop your ING statement here</p>
-                    <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">or click to choose a PDF</p>
+                    <p class="mt-4 text-lg font-semibold">Drop your ING statements here</p>
+                    <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">or click to choose PDFs (up to 12)</p>
                 </div>
 
                 <div x-show="busy" x-cloak class="flex flex-col items-center">
                     <x-heroicon-o-arrow-path class="size-7 animate-spin text-emerald-600 dark:text-emerald-400" />
-                    <p class="mt-4 text-sm font-medium">Reading statement…</p>
+                    <p class="mt-4 text-sm font-medium" x-text="count > 1 ? `Reading ${count} statements…` : 'Reading statement…'">Reading statement…</p>
                 </div>
 
-                <input id="statement" name="statement" type="file" accept="application/pdf,.pdf" class="sr-only" x-ref="input" @change="busy = true; $refs.form.requestSubmit()">
+                <input id="statements" name="statements[]" type="file" multiple accept="application/pdf,.pdf" class="sr-only" x-ref="input" @change="choose($refs.input.files)">
             </label>
 
             <noscript>
@@ -40,9 +40,23 @@
                 </div>
             </noscript>
 
-            @error('statement')
+            @error('statements')
                 <p role="alert" class="mt-3 text-center text-sm text-rose-600 dark:text-rose-400">{{ $message }}</p>
             @enderror
+
+            @if ($errors->has('files'))
+                <ul data-failed-files class="mt-2 space-y-1 text-center text-sm text-rose-600 dark:text-rose-400">
+                    @foreach ($errors->get('files') as $line)
+                        <li>{{ $line }}</li>
+                    @endforeach
+                </ul>
+            @endif
+
+            @if ($tooLarge)
+                <p role="alert" class="mt-3 text-center text-sm text-rose-600 dark:text-rose-400">Upload too large, try fewer files.</p>
+            @endif
+
+            <p role="alert" x-show="error" x-text="error" x-cloak class="mt-3 text-center text-sm text-rose-600 dark:text-rose-400"></p>
         </form>
 
         @if ($imported->isNotEmpty())
