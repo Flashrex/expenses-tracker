@@ -54,4 +54,14 @@ class Transaction extends Model
     {
         return $this->belongsTo(Statement::class);
     }
+
+    /**
+     * The rule that grouped or ignored this entry, if any.
+     *
+     * @return BelongsTo<Rule, $this>
+     */
+    public function rule(): BelongsTo
+    {
+        return $this->belongsTo(Rule::class);
+    }
 }
