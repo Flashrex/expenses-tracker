@@ -1,5 +1,9 @@
 <?php
 
+use App\Services\Statements\IngStatementParser;
+use App\Services\Statements\MerchantDeriver;
+use App\Services\Statements\ParsedEntry;
+use App\Services\Statements\ParsedStatement;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Illuminate\Http\UploadedFile;
 use Tests\TestCase;
@@ -45,4 +49,26 @@ function blankPdf(): string
     }
 
     return $pdf."trailer\n<< /Size ".(count($objects) + 1)." /Root 1 0 R >>\nstartxref\n{$xref}\n%%EOF\n";
+}
+
+/** The June fixture, parsed once per process. */
+function fixtureStatement(): ParsedStatement
+{
+    static $statement = null;
+
+    return $statement ??= (new IngStatementParser)->parse(fixturePath('ing-2026-06.pdf'));
+}
+
+/** A synthetic entry; the merchant is derived like the parser does it. */
+function entry(int $amountCents, ?string $counterparty = null, string $purpose = '', string $type = 'Lastschrift'): ParsedEntry
+{
+    return new ParsedEntry(
+        bookedOn: '2026-06-01',
+        valueOn: '2026-06-01',
+        type: $type,
+        counterparty: $counterparty,
+        purpose: $purpose,
+        merchant: (new MerchantDeriver)->derive($type, $counterparty, $purpose),
+        amountCents: $amountCents,
+    );
 }

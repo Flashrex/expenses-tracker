@@ -1,7 +1,7 @@
 <?php
 
 /**
- * @return array{groups: array<string, array{name: string, color: string, sort: int}>}
+ * @return array{groups: array<string, array{name: string, color: string, sort: int}>, rules: list<array{field: string, pattern: string, direction: string, group_key?: string, share_divisor?: int, priority?: int, ignore?: bool}>}
  */
 return [
     'groups' => [
@@ -15,5 +15,50 @@ return [
         'restaurants' => ['name' => 'Restaurants & Bars', 'color' => '#f43f5e', 'sort' => 8],
         'health' => ['name' => 'Health', 'color' => '#14b8a6', 'sort' => 9],
         'other' => ['name' => 'Other', 'color' => '#94a3b8', 'sort' => 10],
+    ],
+
+    'rules' => [
+        ['field' => 'purpose', 'pattern' => 'Miete', 'direction' => 'out', 'group_key' => 'rent', 'share_divisor' => 3],
+        ['field' => 'counterparty', 'pattern' => 'RhoenEnergie Fulda', 'direction' => 'out', 'group_key' => 'utilities', 'share_divisor' => 3],
+        ['field' => 'merchant', 'pattern' => 'TEGUT', 'direction' => 'out', 'group_key' => 'groceries'],
+        ['field' => 'merchant', 'pattern' => 'REWE', 'direction' => 'out', 'group_key' => 'groceries'],
+        ['field' => 'merchant', 'pattern' => 'EDEKA', 'direction' => 'out', 'group_key' => 'groceries'],
+        ['field' => 'merchant', 'pattern' => 'ALDI SUED', 'direction' => 'out', 'group_key' => 'groceries'],
+        ['field' => 'merchant', 'pattern' => 'BAECKEREI HAPP', 'direction' => 'out', 'group_key' => 'groceries'],
+        ['field' => 'merchant', 'pattern' => 'TEO FULDA', 'direction' => 'out', 'group_key' => 'groceries'],
+        ['field' => 'merchant', 'pattern' => 'ROSSMANN', 'direction' => 'out', 'group_key' => 'groceries'],
+        ['field' => 'merchant', 'pattern' => 'MUELLER', 'direction' => 'out', 'group_key' => 'groceries'],
+        ['field' => 'purpose', 'pattern' => 'Netflix + Router', 'direction' => 'out', 'group_key' => 'subscriptions'],
+        ['field' => 'merchant', 'pattern' => 'Spotify', 'direction' => 'out', 'group_key' => 'subscriptions'],
+        ['field' => 'merchant', 'pattern' => 'Discovery', 'direction' => 'out', 'group_key' => 'subscriptions'],
+        ['field' => 'merchant', 'pattern' => 'AMAZON PRIM', 'direction' => 'out', 'group_key' => 'subscriptions', 'priority' => 200],
+        ['field' => 'merchant', 'pattern' => 'E-Plus', 'direction' => 'out', 'group_key' => 'subscriptions'],
+        ['field' => 'purpose', 'pattern' => 'ALDI TALK', 'direction' => 'out', 'group_key' => 'subscriptions'],
+        ['field' => 'merchant', 'pattern' => 'STEAM', 'direction' => 'out', 'group_key' => 'hobbies'],
+        ['field' => 'merchant', 'pattern' => 'steampowered', 'direction' => 'out', 'group_key' => 'hobbies'],
+        ['field' => 'merchant', 'pattern' => 'CineStar', 'direction' => 'out', 'group_key' => 'hobbies'],
+        ['field' => 'merchant', 'pattern' => 'Baderbetrieb', 'direction' => 'out', 'group_key' => 'hobbies', 'priority' => 200],
+        ['field' => 'merchant', 'pattern' => 'Google Payment Ireland', 'direction' => 'out', 'group_key' => 'hobbies'],
+        ['field' => 'merchant', 'pattern' => 'AMAZON', 'direction' => 'out', 'group_key' => 'online_orders'],
+        ['field' => 'merchant', 'pattern' => 'WWW.AMAZON', 'direction' => 'out', 'group_key' => 'online_orders'],
+        ['field' => 'merchant', 'pattern' => 'rebuy', 'direction' => 'out', 'group_key' => 'online_orders'],
+        ['field' => 'merchant', 'pattern' => 'Takeaway.com', 'direction' => 'out', 'group_key' => 'takeaway'],
+        ['field' => 'merchant', 'pattern' => 'Lieferando', 'direction' => 'out', 'group_key' => 'takeaway'],
+        ['field' => 'merchant', 'pattern' => 'McDonalds', 'direction' => 'out', 'group_key' => 'takeaway'],
+        ['field' => 'merchant', 'pattern' => 'UNI DONER', 'direction' => 'out', 'group_key' => 'takeaway'],
+        ['field' => 'merchant', 'pattern' => 'Selecta', 'direction' => 'out', 'group_key' => 'takeaway'],
+        ['field' => 'merchant', 'pattern' => 'Kiosk', 'direction' => 'out', 'group_key' => 'takeaway'],
+        ['field' => 'merchant', 'pattern' => 'VIVA HAVANNA', 'direction' => 'out', 'group_key' => 'restaurants'],
+        ['field' => 'merchant', 'pattern' => 'RESTAURANT PIZZERIA', 'direction' => 'out', 'group_key' => 'restaurants'],
+        ['field' => 'merchant', 'pattern' => 'RISTORANTE LA ROMA', 'direction' => 'out', 'group_key' => 'restaurants'],
+        ['field' => 'merchant', 'pattern' => 'LS CHUMBOS', 'direction' => 'out', 'group_key' => 'restaurants'],
+        ['field' => 'merchant', 'pattern' => 'DAK-Gesundheit', 'direction' => 'out', 'group_key' => 'health'],
+        ['field' => 'merchant', 'pattern' => 'Apotheke', 'direction' => 'out', 'group_key' => 'health'],
+        ['field' => 'purpose', 'pattern' => 'Rundfunkbeitrag', 'direction' => 'out', 'group_key' => 'other', 'share_divisor' => 3],
+        ['field' => 'merchant', 'pattern' => 'LOTTO', 'direction' => 'out', 'group_key' => 'other'],
+        ['field' => 'merchant', 'pattern' => 'Bargeldauszahlung', 'direction' => 'out', 'group_key' => 'other'],
+        ['field' => 'type', 'pattern' => 'Abschluss', 'direction' => 'out', 'group_key' => 'other'],
+        ['field' => 'purpose', 'pattern' => 'Miete', 'direction' => 'in', 'ignore' => true],
+        ['field' => 'purpose', 'pattern' => 'Rundfunkbeitrag', 'direction' => 'in', 'ignore' => true],
     ],
 ];
