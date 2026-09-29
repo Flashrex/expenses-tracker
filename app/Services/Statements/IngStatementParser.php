@@ -8,7 +8,7 @@ use Throwable;
 /**
  * Reads an ING "Kontoauszug" PDF by the position of its text chunks.
  */
-final class IngStatementParser
+class IngStatementParser
 {
     private const MONTHS = [
         'Januar' => '01', 'Februar' => '02', 'März' => '03', 'April' => '04',
