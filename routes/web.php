@@ -10,4 +10,9 @@ Route::middleware('guest')->group(function () {
 
 Route::middleware('auth')->group(function () {
     Route::post('/logout', [LoginController::class, 'destroy'])->name('logout');
+
+    Route::get('/', fn () => redirect()->route('overview'))->name('home');
+    Route::view('/overview', 'pages.overview')->name('overview');
+    Route::view('/trends', 'pages.trends')->name('trends');
+    Route::view('/upload', 'pages.upload')->name('upload');
 });
