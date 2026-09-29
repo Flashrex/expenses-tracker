@@ -58,26 +58,28 @@
                         @if ($rows !== [])
                             <ul class="divide-y divide-slate-100 dark:divide-slate-800">
                                 @foreach ($rows as $row)
-                                    <li data-group-row="{{ $row->key }}" @if ($row->trend) data-trend="{{ $row->trend }}" @endif class="flex items-center gap-3 py-2.5">
-                                        <span class="size-2.5 shrink-0 rounded-full" style="background-color: {{ $row->color }}"></span>
-                                        <span class="min-w-0 flex-1 truncate text-sm font-medium" title="{{ $row->name }}">{{ $row->name }}</span>
-                                        <span class="hidden text-xs tabular-nums text-slate-500 sm:inline dark:text-slate-400">{{ Percent::format($row->share) }}</span>
-                                        <span class="whitespace-nowrap text-sm font-semibold tabular-nums">{{ Money::format($row->cents) }}</span>
-                                        @if ($row->trend !== null)
-                                            <span data-delta @class([
-                                                'w-16 shrink-0 text-right text-xs font-semibold tabular-nums',
-                                                'text-rose-600 dark:text-rose-400' => in_array($row->trend, ['up', 'new'], true),
-                                                'text-emerald-600 dark:text-emerald-400' => $row->trend === 'down',
-                                                'text-slate-500 dark:text-slate-400' => $row->trend === 'same',
-                                            ])>
-                                                {{ match ($row->trend) {
-                                                    'up' => '↑ '.Percent::format($row->deltaPercent, 0),
-                                                    'down' => '↓ '.Percent::format($row->deltaPercent, 0),
-                                                    'same' => '±0 %',
-                                                    'new' => 'new',
-                                                } }}
-                                            </span>
-                                        @endif
+                                    <li data-group-row="{{ $row->key }}" @if ($row->trend) data-trend="{{ $row->trend }}" @endif>
+                                        <a href="{{ route('overview', $period->query() + $filters->withGroup($row->key)->query()) }}#entries" data-entries-group="{{ $row->key }}" class="-mx-2 flex items-center gap-3 rounded-lg px-2 py-2.5 hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-emerald-600 dark:hover:bg-slate-800/60 dark:focus-visible:outline-emerald-400">
+                                            <span class="size-2.5 shrink-0 rounded-full" style="background-color: {{ $row->color }}"></span>
+                                            <span class="min-w-0 flex-1 truncate text-sm font-medium" title="{{ $row->name }}">{{ $row->name }}</span>
+                                            <span class="hidden text-xs tabular-nums text-slate-500 sm:inline dark:text-slate-400">{{ Percent::format($row->share) }}</span>
+                                            <span class="whitespace-nowrap text-sm font-semibold tabular-nums">{{ Money::format($row->cents) }}</span>
+                                            @if ($row->trend !== null)
+                                                <span data-delta @class([
+                                                    'w-16 shrink-0 text-right text-xs font-semibold tabular-nums',
+                                                    'text-rose-600 dark:text-rose-400' => in_array($row->trend, ['up', 'new'], true),
+                                                    'text-emerald-600 dark:text-emerald-400' => $row->trend === 'down',
+                                                    'text-slate-500 dark:text-slate-400' => $row->trend === 'same',
+                                                ])>
+                                                    {{ match ($row->trend) {
+                                                        'up' => '↑ '.Percent::format($row->deltaPercent, 0),
+                                                        'down' => '↓ '.Percent::format($row->deltaPercent, 0),
+                                                        'same' => '±0 %',
+                                                        'new' => 'new',
+                                                    } }}
+                                                </span>
+                                            @endif
+                                        </a>
                                     </li>
                                 @endforeach
                             </ul>
@@ -89,6 +91,8 @@
                     </div>
                 </div>
             </section>
+
+            @include('pages.overview.entries')
         </div>
     @endif
 </x-layouts.app>

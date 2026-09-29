@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\OverviewController;
+use App\Http\Controllers\OverviewEntriesController;
 use App\Http\Controllers\StatementUploadController;
 use App\Http\Controllers\TrendsController;
 use App\Http\Middleware\DiscardPendingStatementImport;
@@ -17,6 +18,7 @@ Route::middleware(['auth', DiscardPendingStatementImport::class])->group(functio
 
     Route::get('/', fn () => redirect()->route('overview'))->name('home');
     Route::get('/overview', OverviewController::class)->name('overview');
+    Route::get('/overview/entries', OverviewEntriesController::class)->name('overview.entries');
     Route::get('/trends', TrendsController::class)->name('trends');
 
     Route::get('/upload', [StatementUploadController::class, 'create'])->name('upload');

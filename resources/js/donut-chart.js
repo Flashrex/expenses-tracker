@@ -33,8 +33,11 @@ export default () => ({
                 labelLine: { show: false },
                 itemStyle: { borderWidth: 2, borderRadius: 4 },
                 emphasis: { scale: true, scaleSize: 4, label: { show: false } },
-                data: data.slices.map((s) => ({ name: s.name, value: s.value, amount: s.amount, itemStyle: { color: s.color } })),
+                data: data.slices.map((s) => ({ key: s.key, name: s.name, value: s.value, amount: s.amount, itemStyle: { color: s.color } })),
             }],
+        });
+        this.chart.on('click', (params) => {
+            window.dispatchEvent(new CustomEvent('entries:group', { detail: { group: params.data.key } }));
         });
 
         const observer = new ResizeObserver(() => this.chart?.resize());
