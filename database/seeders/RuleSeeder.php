@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Enums\RuleDirection;
 use App\Enums\RuleField;
+use App\Enums\RuleOperator;
 use App\Enums\RuleSource;
 use App\Models\Rule;
 use App\Services\Groups\GroupCatalog;
@@ -14,44 +15,45 @@ use InvalidArgumentException;
 class RuleSeeder extends Seeder
 {
     /**
-     * Sync the seeded rules with config/expenses.php. Manual rules are never touched.
+     * Seed the configured rules once into an empty rule set. Existing rules (edited on the Groups & rules page) are never touched.
      */
     public function run(): void
     {
         $rows = config('expenses.rules');
 
-        $keys = $this->validate($rows);
+        $this->validate($rows);
 
-        foreach ($rows as $row) {
-            Rule::query()->updateOrCreate([
-                'source' => RuleSource::Seeded->value,
-                'field' => $row['field'],
-                'pattern' => $row['pattern'],
-                'direction' => $row['direction'],
-            ], [
-                'priority' => $row['priority'] ?? 100,
-                'group_key' => $row['group_key'] ?? null,
-                'share_divisor' => $row['share_divisor'] ?? 1,
-                'ignore' => $row['ignore'] ?? false,
-            ]);
+        if (Rule::query()->where('source', RuleSource::System->value)->exists()) {
+            return;
         }
 
-        Rule::query()
-            ->where('source', RuleSource::Seeded->value)
-            ->get()
-            ->reject(fn (Rule $rule) => in_array($this->key($rule->field->value, $rule->pattern, $rule->direction->value), $keys, true))
-            ->each(fn (Rule $rule) => $rule->delete());
+        $positions = [];
+
+        foreach ($rows as $row) {
+            $groupKey = $row['group_key'] ?? null;
+            $bucket = $groupKey ?? '';
+            $positions[$bucket] = ($positions[$bucket] ?? 0) + 1;
+
+            Rule::query()->create([
+                'conditions' => [['field' => $row['field'], 'operator' => RuleOperator::Contains->value, 'value' => $row['pattern']]],
+                'direction' => $row['direction'],
+                'group_key' => $groupKey,
+                'share_divisor' => $row['share_divisor'] ?? 1,
+                'ignore' => $row['ignore'] ?? false,
+                'source' => RuleSource::System,
+                'position' => $positions[$bucket],
+            ]);
+        }
     }
 
     /**
      * Check every row before anything is written.
      *
      * @param  list<array<string, mixed>>  $rows
-     * @return list<string> the key of each row
      *
      * @throws InvalidArgumentException
      */
-    private function validate(array $rows): array
+    private function validate(array $rows): void
     {
         $groups = app(GroupCatalog::class)->keys();
         $keys = [];
@@ -100,7 +102,6 @@ class RuleSeeder extends Seeder
             $keys[] = $key;
         }
 
-        return $keys;
     }
 
     private function key(string $field, string $pattern, string $direction): string

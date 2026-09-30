@@ -3,8 +3,9 @@
 namespace App\Models;
 
 use App\Enums\RuleDirection;
-use App\Enums\RuleField;
 use App\Enums\RuleSource;
+use App\Services\Rules\Condition;
+use App\Services\Statements\ParsedEntry;
 use Database\Factories\RuleFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -13,25 +14,19 @@ use MongoDB\Laravel\Eloquent\Model;
 
 /**
  * @property string $id
- * @property RuleField $field
- * @property string $pattern
+ * @property list<array{field: string, operator: string, value: string|int}> $conditions
  * @property RuleDirection $direction
- * @property int $priority
  * @property ?string $group_key
  * @property int $share_divisor
  * @property bool $ignore
  * @property RuleSource $source
+ * @property ?int $position order inside its card; null for "Always use" rules
  */
-#[Fillable(['field', 'pattern', 'direction', 'priority', 'group_key', 'share_divisor', 'ignore', 'source'])]
+#[Fillable(['conditions', 'direction', 'group_key', 'share_divisor', 'ignore', 'source', 'position'])]
 class Rule extends Model
 {
     /** @use HasFactory<RuleFactory> */
     use HasFactory;
-
-    /**
-     * Priority of rules the user creates while reviewing; it only orders manual rules among themselves, seeded rules always match first.
-     */
-    public const MANUAL_PRIORITY = 300;
 
     /**
      * The model's default values for attributes.
@@ -39,10 +34,10 @@ class Rule extends Model
      * @var array<string, mixed>
      */
     protected $attributes = [
-        'priority' => 100,
         'group_key' => null,
         'share_divisor' => 1,
         'ignore' => false,
+        'position' => null,
     ];
 
     /**
@@ -53,12 +48,11 @@ class Rule extends Model
     protected function casts(): array
     {
         return [
-            'field' => RuleField::class,
             'direction' => RuleDirection::class,
             'source' => RuleSource::class,
-            'priority' => 'integer',
             'share_divisor' => 'integer',
             'ignore' => 'boolean',
+            'position' => 'integer',
         ];
     }
 
@@ -73,11 +67,46 @@ class Rule extends Model
     }
 
     /**
-     * How the rule reads in entry details: `Rule · purpose contains "Miete"` or `Manual rule · merchant contains "…"`.
+     * @return list<Condition>
+     */
+    public function conditionList(): array
+    {
+        return array_map(Condition::fromArray(...), $this->conditions ?? []);
+    }
+
+    /**
+     * Whether the direction fits and every condition matches; a rule without conditions never matches.
+     */
+    public function matches(ParsedEntry $entry): bool
+    {
+        $conditions = $this->conditionList();
+
+        if ($conditions === [] || ! $this->direction->matches($entry->direction())) {
+            return false;
+        }
+
+        foreach ($conditions as $condition) {
+            if (! $condition->matches($entry)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * How the rule reads in entry details: `Rule · merchant contains "xy" AND amount is greater than 50,00 €`.
      */
     public function description(): string
     {
-        return ($this->source === RuleSource::Manual ? 'Manual rule' : 'Rule')
-            .' · '.$this->field->value.' contains "'.$this->pattern.'"';
+        return ($this->source === RuleSource::Manual ? 'Manual rule' : 'Rule').' · '.$this->conditionText();
+    }
+
+    /**
+     * The conditions alone, joined by AND.
+     */
+    public function conditionText(): string
+    {
+        return implode(' AND ', array_map(fn (Condition $condition) => $condition->describe(), $this->conditionList()));
     }
 }

@@ -1,7 +1,6 @@
 <?php
 
 use App\Enums\RuleDirection;
-use App\Enums\RuleField;
 use App\Enums\RuleSource;
 use App\Models\Rule;
 use App\Models\Statement;
@@ -85,7 +84,7 @@ test('shows the unmatched transfer in the review queue', function () {
 
 test('hides the queue when every entry is matched', function () {
     $this->seed(RuleSeeder::class);
-    Rule::factory()->manual()->create(['field' => RuleField::Merchant, 'pattern' => 'Echtzeitüberweisung', 'direction' => RuleDirection::Out, 'group_key' => 'other']);
+    Rule::factory()->manual()->withCondition('merchant', 'contains', 'Echtzeitüberweisung')->create(['direction' => RuleDirection::Out, 'group_key' => 'other', 'position' => null]);
     uploadForReview(seeded: false);
 
     $html = $this->get(route('upload.review', '2026-06'))
@@ -273,10 +272,9 @@ test('creates the rule only when ticked and only on confirm', function () {
 
     $rule = manualRules()->sole();
 
-    expect($rule->field)->toBe(RuleField::Merchant)
-        ->and($rule->pattern)->toBe('Echtzeitüberweisung')
+    expect($rule->conditions)->toBe([['field' => 'merchant', 'operator' => 'contains', 'value' => 'Echtzeitüberweisung']])
         ->and($rule->direction)->toBe(RuleDirection::Out)
-        ->and($rule->priority)->toBe(300)
+        ->and($rule->position)->toBeNull()
         ->and($rule->group_key)->toBe('other')
         ->and($rule->share_divisor)->toBe(1)
         ->and($rule->ignore)->toBeFalse()
@@ -368,7 +366,7 @@ test('stores the always group for every entry of the merchant', function () {
     $rule = manualRules()->sole();
     $tegutTransactions = Transaction::where('merchant', 'TEGUT')->get();
 
-    expect($rule->pattern)->toBe('TEGUT')
+    expect($rule->conditions[0]['value'])->toBe('TEGUT')
         ->and($rule->group_key)->toBe('groceries')
         ->and($tegutTransactions)->toHaveCount(count($tegut))
         ->and($tegutTransactions->every(fn (Transaction $transaction) => $transaction->group_key === 'groceries' && $transaction->rule_id === $rule->id))->toBeTrue()

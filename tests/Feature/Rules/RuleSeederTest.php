@@ -1,49 +1,44 @@
 <?php
 
-use App\Enums\RuleField;
 use App\Enums\RuleSource;
 use App\Models\Rule;
+use App\Services\Groups\GroupCatalog;
 use Database\Seeders\RuleSeeder;
-
-/** The configured rules without the one for the given pattern (merchant/out). */
-function rulesWithout(string $pattern): array
-{
-    return array_values(array_filter(
-        config('expenses.rules'),
-        fn (array $row) => ! ($row['pattern'] === $pattern && $row['field'] === 'merchant' && $row['direction'] === 'out'),
-    ));
-}
 
 function seededRule(string $pattern, string $direction = 'out'): ?Rule
 {
-    return Rule::query()->where('pattern', $pattern)->where('direction', $direction)->first();
+    return Rule::query()->where('conditions.0.value', $pattern)->where('direction', $direction)->first();
 }
 
-test('seeds every configured rule', function () {
+test('seeds every configured rule once', function () {
     $this->seed(RuleSeeder::class);
 
     expect(Rule::count())->toBe(42)->toBe(count(config('expenses.rules')))
-        ->and(Rule::all()->every(fn (Rule $rule) => $rule->source === RuleSource::Seeded))->toBeTrue();
+        ->and(Rule::all()->every(fn (Rule $rule) => $rule->source === RuleSource::System))->toBeTrue();
 
     $rent = seededRule('Miete');
-    expect($rent->group_key)->toBe('rent')
+    expect($rent->conditions)->toBe([['field' => 'purpose', 'operator' => 'contains', 'value' => 'Miete']])
+        ->and($rent->group_key)->toBe('rent')
         ->and($rent->share_divisor)->toBe(3)
-        ->and($rent->priority)->toBe(100)
+        ->and($rent->position)->toBe(1)
         ->and($rent->ignore)->toBeFalse();
-
-    expect(seededRule('AMAZON PRIM')->priority)->toBe(200);
 
     $reimbursement = seededRule('Miete', 'in');
     expect($reimbursement->ignore)->toBeTrue()
         ->and($reimbursement->group_key)->toBeNull();
 
-    expect(seededRule('Abschluss')->field)->toBe(RuleField::Type);
+    expect(seededRule('Abschluss')->conditions[0]['field'])->toBe('type');
+
+    $groceries = Rule::query()->where('group_key', 'groceries')->orderBy('position')->get();
+    expect($groceries->pluck('position')->all())->toBe(range(1, 8))
+        ->and($groceries->map(fn (Rule $rule) => $rule->conditions[0]['value'])->all())
+        ->toBe(['TEGUT', 'REWE', 'EDEKA', 'ALDI SUED', 'BAECKEREI HAPP', 'TEO FULDA', 'ROSSMANN', 'MUELLER']);
 });
 
-test('references only configured groups', function () {
+test('references only existing groups', function () {
     $this->seed(RuleSeeder::class);
 
-    $groups = array_keys(config('expenses.groups'));
+    $groups = app(GroupCatalog::class)->keys();
 
     Rule::all()->each(function (Rule $rule) use ($groups) {
         if ($rule->ignore) {
@@ -64,34 +59,25 @@ test('is idempotent', function () {
         ->and(Rule::query()->pluck('id')->sort()->values()->all())->toBe($ids);
 });
 
-test('syncs changed and removed config rules', function () {
+test('never resets edited rules', function () {
     $this->seed(RuleSeeder::class);
-    $tegutId = seededRule('TEGUT')->id;
-
-    $rules = array_map(
-        fn (array $row) => $row['pattern'] === 'TEGUT' ? [...$row, 'group_key' => 'other'] : $row,
-        rulesWithout('REWE'),
-    );
-    $rules[] = ['field' => 'merchant', 'pattern' => 'NORMA', 'direction' => 'out', 'group_key' => 'groceries'];
-    config()->set('expenses.rules', $rules);
+    seededRule('Miete')->update(['share_divisor' => 2]);
+    seededRule('REWE')->delete();
 
     $this->seed(RuleSeeder::class);
 
-    $tegut = seededRule('TEGUT');
-    expect($tegut->group_key)->toBe('other')
-        ->and($tegut->id)->toBe($tegutId)
+    expect(seededRule('Miete')->share_divisor)->toBe(2)
         ->and(seededRule('REWE'))->toBeNull()
-        ->and(seededRule('NORMA'))->not->toBeNull()
-        ->and(Rule::count())->toBe(42);
+        ->and(Rule::count())->toBe(41);
 });
 
 test('keeps manual rules', function () {
-    $manual = Rule::factory()->manual()->create(['pattern' => 'REWE']);
-    config()->set('expenses.rules', rulesWithout('REWE'));
+    $manual = Rule::factory()->manual()->withCondition('merchant', 'contains', 'REWE')->create(['position' => null]);
 
     $this->seed(RuleSeeder::class);
 
-    expect(Rule::find($manual->id))->not->toBeNull();
+    expect(Rule::find($manual->id))->not->toBeNull()
+        ->and(Rule::count())->toBe(43);
 });
 
 test('rejects invalid rule config', function (array $row) {

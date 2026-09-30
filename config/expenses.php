@@ -3,7 +3,7 @@
 /**
  * Groups are only the initial set: the migration copies them into the groups collection once; at runtime groups come from the database (GroupCatalog).
  *
- * @return array{groups: array<string, array{name: string, color: string, sort: int}>, rules: list<array{field: string, pattern: string, direction: string, group_key?: string, share_divisor?: int, priority?: int, ignore?: bool}>}
+ * @return array{groups: array<string, array{name: string, color: string, sort: int}>, rules: list<array{field: string, pattern: string, direction: string, group_key?: string, share_divisor?: int, ignore?: bool}>}
  */
 return [
     'groups' => [
@@ -33,16 +33,16 @@ return [
         ['field' => 'purpose', 'pattern' => 'Netflix + Router', 'direction' => 'out', 'group_key' => 'subscriptions'],
         ['field' => 'merchant', 'pattern' => 'Spotify', 'direction' => 'out', 'group_key' => 'subscriptions'],
         ['field' => 'merchant', 'pattern' => 'Discovery', 'direction' => 'out', 'group_key' => 'subscriptions'],
-        ['field' => 'merchant', 'pattern' => 'AMAZON PRIM', 'direction' => 'out', 'group_key' => 'subscriptions', 'priority' => 200],
-        ['field' => 'merchant', 'pattern' => 'E-Plus', 'direction' => 'out', 'group_key' => 'subscriptions'],
+        ['field' => 'merchant', 'pattern' => 'AMAZON PRIM', 'direction' => 'out', 'group_key' => 'subscriptions'],
         ['field' => 'purpose', 'pattern' => 'ALDI TALK', 'direction' => 'out', 'group_key' => 'subscriptions'],
-        ['field' => 'merchant', 'pattern' => 'STEAM', 'direction' => 'out', 'group_key' => 'hobbies'],
+        ['field' => 'merchant', 'pattern' => 'E-Plus', 'direction' => 'out', 'group_key' => 'subscriptions'],
         ['field' => 'merchant', 'pattern' => 'steampowered', 'direction' => 'out', 'group_key' => 'hobbies'],
+        ['field' => 'merchant', 'pattern' => 'STEAM', 'direction' => 'out', 'group_key' => 'hobbies'],
         ['field' => 'merchant', 'pattern' => 'CineStar', 'direction' => 'out', 'group_key' => 'hobbies'],
-        ['field' => 'merchant', 'pattern' => 'Baderbetrieb', 'direction' => 'out', 'group_key' => 'hobbies', 'priority' => 200],
+        ['field' => 'merchant', 'pattern' => 'Baderbetrieb', 'direction' => 'out', 'group_key' => 'hobbies'],
         ['field' => 'merchant', 'pattern' => 'Google Payment Ireland', 'direction' => 'out', 'group_key' => 'hobbies'],
-        ['field' => 'merchant', 'pattern' => 'AMAZON', 'direction' => 'out', 'group_key' => 'online_orders'],
         ['field' => 'merchant', 'pattern' => 'WWW.AMAZON', 'direction' => 'out', 'group_key' => 'online_orders'],
+        ['field' => 'merchant', 'pattern' => 'AMAZON', 'direction' => 'out', 'group_key' => 'online_orders'],
         ['field' => 'merchant', 'pattern' => 'rebuy', 'direction' => 'out', 'group_key' => 'online_orders'],
         ['field' => 'merchant', 'pattern' => 'Takeaway.com', 'direction' => 'out', 'group_key' => 'takeaway'],
         ['field' => 'merchant', 'pattern' => 'Lieferando', 'direction' => 'out', 'group_key' => 'takeaway'],

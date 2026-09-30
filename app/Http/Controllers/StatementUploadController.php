@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\RuleDirection;
 use App\Enums\RuleField;
+use App\Enums\RuleOperator;
 use App\Enums\RuleSource;
 use App\Http\Middleware\DiscardPendingStatementImport;
 use App\Http\Requests\AssignReviewEntryRequest;
@@ -308,10 +309,19 @@ class StatementUploadController extends Controller
             $ruleIds = [];
 
             foreach ($queue->always() as $key => $choice) {
-                $rule = Rule::query()->updateOrCreate(
-                    ['source' => RuleSource::Manual->value, 'field' => RuleField::Merchant->value, 'pattern' => $choice['merchant'], 'direction' => RuleDirection::Out->value],
-                    ['priority' => Rule::MANUAL_PRIORITY, 'group_key' => $choice['group_key'], 'share_divisor' => 1, 'ignore' => false],
-                );
+                $rule = Rule::query()
+                    ->where('source', RuleSource::Manual->value)
+                    ->where('conditions.0.field', RuleField::Merchant->value)
+                    ->where('conditions.0.value', $choice['merchant'])
+                    ->where('direction', RuleDirection::Out->value)
+                    ->first() ?? new Rule(['source' => RuleSource::Manual, 'direction' => RuleDirection::Out]);
+
+                $rule->fill([
+                    'conditions' => [['field' => RuleField::Merchant->value, 'operator' => RuleOperator::Contains->value, 'value' => $choice['merchant']]],
+                    'group_key' => $choice['group_key'],
+                    'share_divisor' => 1,
+                    'ignore' => false,
+                ])->save();
 
                 $ruleIds[$key] = $rule->id;
             }

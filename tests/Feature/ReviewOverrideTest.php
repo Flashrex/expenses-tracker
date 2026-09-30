@@ -1,7 +1,6 @@
 <?php
 
 use App\Enums\RuleDirection;
-use App\Enums\RuleField;
 use App\Models\Rule;
 use App\Models\Transaction;
 use App\Models\User;
@@ -146,12 +145,10 @@ test('shows entry details for every entry', function () {
 });
 
 test('names manual rules like the overview', function () {
-    Rule::factory()->manual()->create([
-        'field' => RuleField::Merchant,
-        'pattern' => 'Echtzeitüberweisung',
+    Rule::factory()->manual()->withCondition('merchant', 'contains', 'Echtzeitüberweisung')->create([
         'direction' => RuleDirection::Out,
-        'priority' => Rule::MANUAL_PRIORITY,
         'group_key' => 'other',
+        'position' => null,
     ]);
     uploadJuneForOverride();
 
@@ -208,7 +205,7 @@ test('stores the override on confirm without touching the rule', function () {
     $this->post(route('upload.confirm', '2026-06'))->assertRedirect(route('upload'));
 
     $rent = reviewRentTransaction();
-    $rentRule = Rule::query()->where('field', 'purpose')->where('pattern', 'Miete')->where('direction', 'out')->sole();
+    $rentRule = Rule::query()->where('conditions.0.field', 'purpose')->where('conditions.0.value', 'Miete')->where('direction', 'out')->sole();
     $energy = Transaction::query()->where('merchant', 'RhoenEnergie Fulda')->first();
 
     expect($rent->group_key)->toBe('other')

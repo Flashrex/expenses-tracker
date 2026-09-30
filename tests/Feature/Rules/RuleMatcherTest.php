@@ -1,8 +1,9 @@
 <?php
 
 use App\Enums\RuleDirection;
-use App\Enums\RuleField;
+use App\Models\Group;
 use App\Models\Rule;
+use App\Services\Groups\GroupCatalog;
 use App\Services\Rules\RuleMatch;
 use App\Services\Rules\RuleMatcher;
 use Database\Seeders\RuleSeeder;
@@ -13,7 +14,7 @@ beforeEach(function () {
 
 function ruleId(string $pattern, string $direction = 'out'): string
 {
-    return Rule::query()->where('pattern', $pattern)->where('direction', $direction)->first()->id;
+    return Rule::query()->where('conditions.0.value', $pattern)->where('direction', $direction)->first()->id;
 }
 
 /** @return list<RuleMatch> */
@@ -139,41 +140,64 @@ test('matches seeded rules without a fixture entry', function (Closure $entry, s
     'umlaut' => [fn () => entry(-999, 'VISA MÜLLER 1234'), 'groceries'],
 ]);
 
-test('prefers higher priority', function () {
+/** @param  list<Rule>  $rules */
+function matcherFor(array $rules): RuleMatcher
+{
+    return new RuleMatcher($rules, app(GroupCatalog::class)->keys());
+}
+
+test('prefers the group higher in the order', function () {
+    $groceries = Rule::factory()->withCondition('merchant', 'contains', 'FOO')->create(['group_key' => 'groceries']);
+    $rent = Rule::factory()->withCondition('merchant', 'contains', 'FOO')->create(['group_key' => 'rent']);
+
+    expect(matcherFor([$groceries, $rent])->match(entry(-100, 'FOO GmbH'))->groupKey)->toBe('rent');
+
+    Group::reorder(['groceries', ...array_values(array_diff(app(GroupCatalog::class)->keys(), ['groceries']))]);
+
+    expect(matcherFor([$groceries, $rent])->match(entry(-100, 'FOO GmbH'))->groupKey)->toBe('groceries');
+});
+
+test('keeps AMAZON PRIM in subscriptions through the group order', function () {
     expect(fixtureMatches()[59]->groupKey)->toBe('subscriptions');
-
-    $match = RuleMatcher::fromDatabase()->match(entry(-470, 'RhoenEnergie Fulda Baderbetrieb GmbH'));
-
-    expect($match->groupKey)->toBe('hobbies')
-        ->and($match->shareDivisor)->toBe(1);
 });
 
-test('prefers the longer pattern at equal priority', function () {
-    $matcher = new RuleMatcher([
-        Rule::factory()->create(['pattern' => 'AMAZON', 'group_key' => 'online_orders']),
-        Rule::factory()->create(['pattern' => 'AMAZON MARKETPLACE', 'group_key' => 'other']),
+test('follows rule positions inside a group', function () {
+    $matcher = matcherFor([
+        Rule::factory()->withCondition('merchant', 'contains', 'FOO')->create(['group_key' => 'other', 'position' => 2]),
+        Rule::factory()->withCondition('merchant', 'contains', 'FOO')->create(['group_key' => 'other', 'position' => 1, 'share_divisor' => 3]),
     ]);
 
-    expect($matcher->match(entry(-1000, 'VISA AMAZON MARKETPLACE* X1'))->groupKey)->toBe('other');
+    expect($matcher->match(entry(-100, 'FOO GmbH'))->shareDivisor)->toBe(3);
 });
 
-test('prefers seeded rules over manual rules of higher priority', function () {
-    Rule::factory()->manual()->create(['pattern' => 'Peter Hein', 'priority' => Rule::MANUAL_PRIORITY, 'group_key' => 'other']);
-    $matcher = RuleMatcher::fromDatabase();
+test('checks ignore rules after groups and always rules last', function () {
+    $manual = Rule::factory()->manual()->withCondition('merchant', 'contains', 'FOO')->create(['group_key' => 'health', 'position' => null]);
+    $ignore = Rule::factory()->ignoring()->withCondition('merchant', 'contains', 'FOO')->create();
+    $group = Rule::factory()->withCondition('merchant', 'contains', 'FOO')->create(['group_key' => 'other']);
 
-    $rent = $matcher->match(entry(-113000, 'Peter Hein', 'Miete Bahnhofstrasse 13', 'Dauerauftrag/Terminueberw.'));
-    expect($rent->groupKey)->toBe('rent')->and($rent->shareDivisor)->toBe(3);
+    expect(matcherFor([$manual, $ignore, $group])->match(entry(-100, 'FOO GmbH'))->groupKey)->toBe('other')
+        ->and(matcherFor([$manual, $ignore])->match(entry(-100, 'FOO GmbH'))->ignored)->toBeTrue()
+        ->and(matcherFor([$manual])->match(entry(-100, 'FOO GmbH'))->groupKey)->toBe('health');
 
-    expect($matcher->match(entry(-23873, 'Peter Hein', 'Nebenkosten Abrechnung 2025', 'Ueberweisung'))->groupKey)->toBe('other');
-});
-
-test('falls back to the older rule on a full tie', function () {
-    $matcher = new RuleMatcher([
-        Rule::factory()->create(['pattern' => 'TEGUT', 'group_key' => 'groceries']),
-        Rule::factory()->create(['field' => RuleField::Counterparty, 'pattern' => 'TEGUT', 'group_key' => 'other']),
+    $matcher = matcherFor([
+        Rule::factory()->manual()->withCondition('merchant', 'contains', 'TEGUT')->create(['group_key' => 'groceries']),
+        Rule::factory()->manual()->withCondition('merchant', 'contains', 'TEGUTXYZ')->create(['group_key' => 'other']),
     ]);
 
-    expect($matcher->match(entry(-399, 'VISA TEGUT FILIALE 5020'))->groupKey)->toBe('groceries');
+    expect($matcher->match(entry(-100, 'VISA TEGUTXYZ 1'))->groupKey)->toBe('other');
+});
+
+test('requires every condition', function () {
+    $matcher = matcherFor([Rule::factory()->create([
+        'group_key' => 'other',
+        'conditions' => [
+            ['field' => 'merchant', 'operator' => 'contains', 'value' => 'Discovery'],
+            ['field' => 'amount', 'operator' => 'less_than', 'value' => 2000],
+        ],
+    ])]);
+
+    expect($matcher->match(entry(-1199, 'Discovery Communication s Benelux'))->groupKey)->toBe('other')
+        ->and($matcher->match(entry(-2500, 'Discovery Communication s Benelux'))->groupKey)->toBeNull();
 });
 
 test('respects the rule direction', function () {
@@ -189,11 +213,14 @@ test('respects the rule direction', function () {
         ->and($refund->ruleId)->toBeNull();
 });
 
-test('matches any direction', function () {
-    $matcher = new RuleMatcher([
-        Rule::factory()->create(['pattern' => 'FOO', 'direction' => RuleDirection::Any, 'group_key' => 'other']),
-    ]);
+test('respects Both and Incoming', function () {
+    $matcher = matcherFor([Rule::factory()->withCondition('merchant', 'contains', 'FOO')->create(['direction' => RuleDirection::Any, 'group_key' => 'other'])]);
 
     expect($matcher->match(entry(-100, 'FOO GmbH'))->groupKey)->toBe('other')
         ->and($matcher->match(entry(100, 'FOO GmbH'))->groupKey)->toBe('other');
+
+    $incoming = matcherFor([Rule::factory()->withCondition('merchant', 'contains', 'FOO')->create(['direction' => RuleDirection::In, 'group_key' => 'other'])]);
+
+    expect($incoming->match(entry(100, 'FOO GmbH'))->groupKey)->toBe('other')
+        ->and($incoming->match(entry(-100, 'FOO GmbH'))->groupKey)->toBeNull();
 });
