@@ -106,7 +106,7 @@ test('parses the upload and shows the review', function () {
     $html = $response->getContent();
 
     expect(substr_count($html, 'data-review-entry='))->toBe(65)
-        ->and(substr_count($html, '<tr'))->toBe(5);
+        ->and(substr_count($html, 'data-review-row='))->toBe(4);
 });
 
 test('keeps the pending import when the review is reloaded', function () {
@@ -262,10 +262,11 @@ test('groups entries on the review page', function () {
         ->and(substr_count($html, 'data-assignment="unassigned"'))->toBe(0)
         ->and(substr_count($html, 'data-assignment="income"'))->toBe(1)
         ->and(substr_count($html, 'data-group="rent"'))->toBe(1)
-        ->and(substr_count($html, '÷3'))->toBe(3)
+        ->and(substr_count($html, 'data-share'))->toBe(3)
+        ->and(substr_count($html, ' / 3)'))->toBe(3)
         ->and(substr_count($html, 'No group'))->toBe(0)
         ->and(substr_count($html, 'data-review-entry='))->toBe(1)
-        ->and(substr_count($html, '<tr'))->toBe(69);
+        ->and(substr_count($html, 'data-row-toggle'))->toBe(69);
 });
 
 test('keeps the rule results in the pending import', function () {

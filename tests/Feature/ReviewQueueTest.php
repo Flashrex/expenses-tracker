@@ -80,7 +80,7 @@ test('shows the unmatched transfer in the review queue', function () {
         ->and($html)->toContain('data-review-entry="65"')
         ->and(substr_count($html, 'data-pick='))->toBe(10)
         ->and(hasAttribute(openingTag($html, 'button', 'data-confirm'), 'disabled'))->toBeTrue()
-        ->and(substr_count($html, '<tr'))->toBe(69);
+        ->and(substr_count($html, 'data-review-row='))->toBe(68);
 });
 
 test('hides the queue when every entry is matched', function () {
@@ -96,7 +96,7 @@ test('hides the queue when every entry is matched', function () {
     expect($html)->not->toContain('data-review-counter')
         ->and($html)->not->toContain('data-review-done')
         ->and(hasAttribute(openingTag($html, 'button', 'data-confirm'), 'disabled'))->toBeFalse()
-        ->and(substr_count($html, '<tr'))->toBe(70);
+        ->and(substr_count($html, 'data-review-row='))->toBe(69);
 });
 
 test('assigns a group to a queue entry', function () {

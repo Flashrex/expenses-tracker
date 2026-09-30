@@ -1,5 +1,7 @@
-export default ({ state, assignUrl, alwaysUrl, csrf }) => ({
+export default ({ state, overrides, groups, assignUrl, alwaysUrl, overrideUrl, csrf }) => ({
     state, // { entries: { [index]: { group, always } }, open }
+    overrides, // { [index]: groupKey } for entries moved away from their rule's group
+    groups, // { [key]: { name, color } } in the usual group order
     busy: false,
     error: false,
 
@@ -12,7 +14,35 @@ export default ({ state, assignUrl, alwaysUrl, csrf }) => ({
         if (!ok) event.target.checked = this.state.entries[entry].always;
     },
 
-    async send(url, body) {
+    override(entry, group) {
+        return this.send(overrideUrl, { entry, group }, (data) => {
+            this.overrides = data.overrides;
+        });
+    },
+
+    isOverridden(entry) {
+        return Object.hasOwn(this.overrides, entry);
+    },
+
+    groupOf(entry, ruleGroup) {
+        return this.overrides[entry] ?? ruleGroup;
+    },
+
+    // Grouped-by text of a To review entry.
+    queuedBy(entry, merchant) {
+        const { group, always } = this.state.entries[entry];
+        if (group === null) return 'Not grouped';
+        return always ? `Always use for ${merchant}` : 'Picked manually';
+    },
+
+    // Clicks on controls inside a row never expand or collapse it.
+    togglesRow(event) {
+        return event.target.closest('button, input, label, a, [data-group-picker]') === null;
+    },
+
+    async send(url, body, apply = (data) => {
+        this.state = data;
+    }) {
         if (this.busy) return false;
         this.busy = true;
         this.error = false;
@@ -27,7 +57,7 @@ export default ({ state, assignUrl, alwaysUrl, csrf }) => ({
                 return false;
             }
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            this.state = await response.json();
+            apply(await response.json());
             return true;
         } catch {
             this.error = true;

@@ -7,6 +7,7 @@ use App\Enums\RuleField;
 use App\Enums\RuleSource;
 use App\Http\Middleware\DiscardPendingStatementImport;
 use App\Http\Requests\AssignReviewEntryRequest;
+use App\Http\Requests\OverrideReviewEntryRequest;
 use App\Http\Requests\StoreStatementUploadRequest;
 use App\Http\Requests\ToggleAlwaysRuleRequest;
 use App\Models\Rule;
@@ -139,15 +140,31 @@ class StatementUploadController extends Controller
 
         $queue = $batch->reviewQueue($period);
         $matches = $batch->assignments($period);
+        $ruleIds = array_values(array_unique(array_filter(array_map(fn (RuleMatch $match) => $match->ruleId, $matches))));
+        $rules = Rule::query()->whereKey($ruleIds)->get()->keyBy(fn (Rule $rule) => (string) $rule->id);
         $queueRows = [];
         $rows = [];
 
         foreach ($statement->entries as $index => $entry) {
             if ($queue->contains($index)) {
                 $queueRows[] = ['index' => $index, 'entry' => $entry];
-            } else {
-                $rows[] = ['entry' => $entry, 'match' => $matches[$index]];
+
+                continue;
             }
+
+            $match = $matches[$index];
+
+            $rows[] = [
+                'index' => $index,
+                'entry' => $entry,
+                'match' => $match,
+                'ruleText' => match (true) {
+                    $match->ruleId === null => 'Not grouped',
+                    $rules->has($match->ruleId) => $rules[$match->ruleId]->description(),
+                    default => 'Rule (since removed)',
+                },
+                'overridable' => $batch->canOverride($period, $index),
+            ];
         }
 
         return view('pages.upload-review', [
@@ -156,6 +173,7 @@ class StatementUploadController extends Controller
             'queueRows' => $queueRows,
             'rows' => $rows,
             'queueState' => $queue->state(),
+            'overrides' => $batch->overrides($period),
             'open' => $queue->openCount(),
             'period' => $period,
             'isBatch' => $batch->isBatch(),
@@ -219,6 +237,33 @@ class StatementUploadController extends Controller
     }
 
     /**
+     * Put an entry a rule grouped into another group, or back into the rule's group.
+     */
+    public function override(OverrideReviewEntryRequest $request, string $period): JsonResponse
+    {
+        $batch = $this->batch();
+
+        if ($batch === null) {
+            return response()->json(['redirect' => route('upload')], 409);
+        }
+
+        if (! $batch->isPending($period)) {
+            return response()->json(['redirect' => route('upload.review')], 409);
+        }
+
+        $index = $request->integer('entry');
+
+        if (! $batch->canOverride($period, $index)) {
+            throw ValidationException::withMessages(['entry' => 'This entry cannot be regrouped.']);
+        }
+
+        $batch->override($period, $index, $request->string('group')->toString());
+        $this->saveBatch($batch);
+
+        return response()->json(['overrides' => (object) $batch->overrides($period)]);
+    }
+
+    /**
      * Store the month, replacing an earlier import of the same statement, then move on to the next month.
      */
     public function confirm(string $period): RedirectResponse
@@ -241,7 +286,7 @@ class StatementUploadController extends Controller
                 ->with('review_error', $open === 1 ? '1 entry still needs a group.' : "{$open} entries still need a group.");
         }
 
-        DB::transaction(function () use ($parsed, $queue) {
+        DB::transaction(function () use ($parsed, $queue, $batch, $period) {
             Statement::query()
                 ->where('number', $parsed->number)
                 ->where('period', $parsed->period)
@@ -278,7 +323,7 @@ class StatementUploadController extends Controller
                 'share_divisor' => $match->shareDivisor,
                 'ignored' => $match->ignored,
                 'rule_id' => $match->ruleId,
-            ], $parsed->entries, $queue->finalMatches($ruleIds)));
+            ], $parsed->entries, $batch->finalMatches($period, $ruleIds)));
         });
 
         $batch->markConfirmed($period);

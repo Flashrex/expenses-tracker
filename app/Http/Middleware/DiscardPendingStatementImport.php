@@ -17,7 +17,7 @@ class DiscardPendingStatementImport
      */
     public function handle(Request $request, Closure $next): Response
     {
-        if (! $request->routeIs('upload.review', 'upload.confirm', 'upload.skip', 'upload.discard', 'upload.assign', 'upload.always', 'upload.notice.dismiss')) {
+        if (! $request->routeIs('upload.review', 'upload.confirm', 'upload.skip', 'upload.discard', 'upload.assign', 'upload.always', 'upload.override', 'upload.notice.dismiss')) {
             $request->session()->forget(self::SESSION_KEY);
         }
 

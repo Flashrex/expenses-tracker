@@ -28,6 +28,7 @@ Route::middleware(['auth', DiscardPendingStatementImport::class])->group(functio
     Route::post('/upload/review/{period}/skip', [StatementUploadController::class, 'skip'])->where('period', '[0-9]{4}-[0-9]{2}')->name('upload.skip');
     Route::post('/upload/review/{period}/assign', [StatementUploadController::class, 'assign'])->where('period', '[0-9]{4}-[0-9]{2}')->name('upload.assign');
     Route::post('/upload/review/{period}/always', [StatementUploadController::class, 'always'])->where('period', '[0-9]{4}-[0-9]{2}')->name('upload.always');
+    Route::post('/upload/review/{period}/override', [StatementUploadController::class, 'override'])->where('period', '[0-9]{4}-[0-9]{2}')->name('upload.override');
     Route::post('/upload/discard', [StatementUploadController::class, 'discard'])->name('upload.discard');
     Route::post('/upload/notice/dismiss', [StatementUploadController::class, 'dismissNotice'])->name('upload.notice.dismiss');
 });
