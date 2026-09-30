@@ -6,6 +6,7 @@ use App\Services\Rules\RuleMatch;
 use App\Services\Rules\RuleMatcher;
 use App\Support\Period;
 use Illuminate\Support\Str;
+use InvalidArgumentException;
 
 /**
  * The parsed but unconfirmed months of an upload, reviewed one at a time, oldest first.
@@ -14,7 +15,7 @@ use Illuminate\Support\Str;
 final class ImportBatch
 {
     /**
-     * @param  array<string, array<string, mixed>>  $months  period => parsed statement + assignments, picks, always, status
+     * @param  array<string, array<string, mixed>>  $months  period => parsed statement + assignments, picks, always, overrides, status
      * @param  list<string>  $failed  "‹file› – ‹reason›" lines, upload order
      */
     private function __construct(
@@ -38,6 +39,7 @@ final class ImportBatch
                 'assignments' => array_map(fn (RuleMatch $match) => $match->toArray(), $assignments),
                 'picks' => [],
                 'always' => [],
+                'overrides' => [],
                 'status' => 'pending',
             ];
         }
@@ -122,6 +124,80 @@ final class ImportBatch
     {
         $this->months[$period]['picks'] = $queue->picks();
         $this->months[$period]['always'] = $queue->always();
+    }
+
+    /**
+     * Whether the entry is outgoing and a rule put it into a group, so its group may be changed by hand.
+     */
+    public function canOverride(string $period, int $index): bool
+    {
+        $entries = $this->statement($period)->entries;
+
+        if (! isset($entries[$index]) || $entries[$index]->direction() !== 'out') {
+            return false;
+        }
+
+        return $this->assignments($period)[$index]->state('out') === 'group';
+    }
+
+    /**
+     * Entries moved away from their rule's group.
+     *
+     * @return array<int, string> entry index => group key, ascending
+     */
+    public function overrides(string $period): array
+    {
+        $assignments = $this->assignments($period);
+        $overrides = [];
+
+        foreach ($this->months[$period]['overrides'] ?? [] as $i => $group) {
+            $i = (int) $i;
+
+            if ($this->canOverride($period, $i) && $group !== $assignments[$i]->groupKey) {
+                $overrides[$i] = $group;
+            }
+        }
+
+        ksort($overrides);
+
+        return $overrides;
+    }
+
+    /**
+     * Put a rule-grouped entry into another group; picking the rule's own group removes the override.
+     */
+    public function override(string $period, int $index, string $groupKey): void
+    {
+        if (! $this->canOverride($period, $index)) {
+            throw new InvalidArgumentException("Entry {$index} cannot be regrouped.");
+        }
+
+        $overrides = $this->overrides($period);
+
+        if ($groupKey === $this->assignments($period)[$index]->groupKey) {
+            unset($overrides[$index]);
+        } else {
+            $overrides[$index] = $groupKey;
+        }
+
+        $this->months[$period]['overrides'] = $overrides;
+    }
+
+    /**
+     * The rule results with the queue choices and the overrides applied.
+     *
+     * @param  array<string, string>  $ruleIds  normalized merchant => id of the saved manual rule
+     * @return list<RuleMatch>
+     */
+    public function finalMatches(string $period, array $ruleIds): array
+    {
+        $matches = $this->reviewQueue($period)->finalMatches($ruleIds);
+
+        foreach ($this->overrides($period) as $i => $group) {
+            $matches[$i] = new RuleMatch($group, 1, false, null);
+        }
+
+        return $matches;
     }
 
     public function markConfirmed(string $period): void

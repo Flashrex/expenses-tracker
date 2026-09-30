@@ -113,3 +113,54 @@ test('hides the notice once dismissed', function () {
         ->and(ImportBatch::fromArray($batch->toArray())->showsNotice())->toBeFalse()
         ->and(batchWith(['2026-06' => 'pending'])->showsNotice())->toBeFalse();
 });
+
+/** June with a rent entry (÷3), an ignored incoming entry, an unmatched outgoing entry and unmatched income. */
+function overrideMonth(): ImportBatch
+{
+    $entries = [
+        entry(-115820, null, 'Miete', 'Dauerauftrag/Terminueberw.'),
+        entry(51540, null, 'Miete', 'Gutschrift/Dauerauftrag'),
+        entry(-20000, 'Someone'),
+        entry(134819, 'CGS GmbH', '', 'Gutschrift'),
+    ];
+
+    return ImportBatch::start([[
+        'statement' => new ParsedStatement(6, '2026-06', '2026-06-30', 0, 0, $entries),
+        'assignments' => [new RuleMatch('rent', 3, false, 'rule-rent'), new RuleMatch(null, 1, true, 'rule-ignore'), RuleMatch::none(), RuleMatch::none()],
+    ]], []);
+}
+
+test('overrides only outgoing entries a rule grouped', function () {
+    $batch = overrideMonth();
+
+    expect($batch->canOverride('2026-06', 0))->toBeTrue()
+        ->and($batch->canOverride('2026-06', 1))->toBeFalse()
+        ->and($batch->canOverride('2026-06', 2))->toBeFalse()
+        ->and($batch->canOverride('2026-06', 3))->toBeFalse()
+        ->and($batch->canOverride('2026-06', 9))->toBeFalse();
+});
+
+test('stores an override and drops it when the rule group is picked', function () {
+    $batch = overrideMonth();
+
+    $batch->override('2026-06', 0, 'other');
+
+    expect($batch->overrides('2026-06'))->toBe([0 => 'other'])
+        ->and(ImportBatch::fromArray($batch->toArray())->overrides('2026-06'))->toBe([0 => 'other']);
+
+    $batch->override('2026-06', 0, 'rent');
+
+    expect($batch->overrides('2026-06'))->toBe([]);
+
+    $batch->override('2026-06', 2, 'other');
+})->throws(InvalidArgumentException::class, 'Entry 2 cannot be regrouped.');
+
+test('applies overrides to the final matches', function () {
+    $batch = overrideMonth();
+    $batch->override('2026-06', 0, 'other');
+
+    $matches = $batch->finalMatches('2026-06', []);
+
+    expect($matches[0])->toEqual(new RuleMatch('other', 1, false, null))
+        ->and($matches[1])->toEqual(new RuleMatch(null, 1, true, 'rule-ignore'));
+});
