@@ -25,13 +25,3 @@ test('defines the ten groups in order', function () {
         expect($group['color'])->toMatch('/^#[0-9a-f]{6}$/');
     }
 });
-
-test('has a matching tailwind token for every group colour', function () {
-    $css = file_get_contents(resource_path('css/app.css'));
-
-    foreach (config('expenses.groups') as $key => $group) {
-        $token = '--color-group-'.str_replace('_', '-', $key).': '.$group['color'].';';
-
-        expect($css)->toContain($token);
-    }
-});

@@ -30,8 +30,8 @@
                                     'border-dashed border-slate-400 dark:border-slate-500' => $isOverridden,
                                     'border-transparent' => ! $isOverridden,
                                 ])>
-                                <span class="size-2 shrink-0 rounded-full" :style="`background-color: ${groups[{{ $groupOf }}].color}`" style="background-color: {{ config("expenses.groups.$current.color") }}"></span>
-                                <span class="truncate" x-text="groups[{{ $groupOf }}].name">{{ config("expenses.groups.$current.name") }}</span>
+                                <span class="size-2 shrink-0 rounded-full" :style="`background-color: ${groups[{{ $groupOf }}].color}`" style="background-color: {{ $groups[$current]['color'] ?? '#cbd5e1' }}"></span>
+                                <span class="truncate" x-text="groups[{{ $groupOf }}].name">{{ $groups[$current]['name'] ?? $current }}</span>
                                 <x-heroicon-m-pencil data-override-marker x-show="isOverridden({{ $i }})" @style(['display: none' => ! $isOverridden]) class="size-3 shrink-0 text-slate-500 dark:text-slate-400" />
                             </button>
 
@@ -48,7 +48,7 @@
 
                             <div data-group-picker role="menu" aria-label="Group for {{ $entry->merchant }}" x-show="picking" x-cloak
                                 class="absolute top-full left-0 z-20 mt-1 w-64 max-w-[calc(100vw-2rem)] rounded-xl border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-700 dark:bg-slate-900">
-                                @foreach (config('expenses.groups') as $key => $group)
+                                @foreach ($groups as $key => $group)
                                     <button type="button" role="menuitemradio" data-pick-override="{{ $key }}"
                                         :aria-checked="{{ $groupOf }} === '{{ $key }}'" aria-checked="{{ $current === $key ? 'true' : 'false' }}"
                                         @click="picking = false; override({{ $i }}, '{{ $key }}')" :disabled="busy"

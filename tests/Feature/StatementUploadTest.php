@@ -243,7 +243,7 @@ test('marks upload as active on the review page', function () {
 
 function mieteOutRuleId(): string
 {
-    return Rule::query()->where('pattern', 'Miete')->where('direction', 'out')->first()->id;
+    return Rule::query()->where('conditions.0.value', 'Miete')->where('direction', 'out')->first()->id;
 }
 
 test('groups entries on the review page', function () {
@@ -295,7 +295,7 @@ test('stores the rule results on confirm', function () {
         ->and($rent->share_divisor)->toBe(3)
         ->and($rent->ignored)->toBeFalse()
         ->and($rent->rule_id)->toBe(mieteOutRuleId())
-        ->and($rent->rule->pattern)->toBe('Miete');
+        ->and($rent->rule->conditions[0]['value'])->toBe('Miete');
 
     $ignored = Transaction::where('ignored', true)->get();
 

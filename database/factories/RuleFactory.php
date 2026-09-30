@@ -3,7 +3,6 @@
 namespace Database\Factories;
 
 use App\Enums\RuleDirection;
-use App\Enums\RuleField;
 use App\Enums\RuleSource;
 use App\Models\Rule;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -21,14 +20,13 @@ class RuleFactory extends Factory
     public function definition(): array
     {
         return [
-            'field' => RuleField::Merchant,
-            'pattern' => 'TEGUT',
+            'conditions' => [['field' => 'merchant', 'operator' => 'contains', 'value' => 'TEGUT']],
             'direction' => RuleDirection::Out,
-            'priority' => 100,
             'group_key' => 'groceries',
             'share_divisor' => 1,
             'ignore' => false,
-            'source' => RuleSource::Seeded,
+            'source' => RuleSource::System,
+            'position' => 1,
         ];
     }
 
@@ -46,5 +44,13 @@ class RuleFactory extends Factory
     public function ignoring(): static
     {
         return $this->state(fn () => ['group_key' => null, 'ignore' => true]);
+    }
+
+    /**
+     * A rule with a single condition.
+     */
+    public function withCondition(string $field, string $operator, string|int $value): static
+    {
+        return $this->state(fn () => ['conditions' => [['field' => $field, 'operator' => $operator, 'value' => $value]]]);
     }
 }

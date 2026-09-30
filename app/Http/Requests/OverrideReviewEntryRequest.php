@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Services\Groups\GroupCatalog;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -25,7 +26,7 @@ class OverrideReviewEntryRequest extends FormRequest
     {
         return [
             'entry' => ['required', 'integer', 'min:0'],
-            'group' => ['required', 'string', Rule::in(array_keys(config('expenses.groups')))],
+            'group' => ['required', 'string', Rule::in(app(GroupCatalog::class)->keys())],
         ];
     }
 }

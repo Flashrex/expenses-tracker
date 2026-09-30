@@ -27,7 +27,7 @@ final readonly class TrendSeries
     /**
      * @param  non-empty-list<string>  $importedMonths  Statement::importedPeriods(): 'YYYY-MM', ascending; the range runs from the first to the last
      * @param  array<string, Totals>  $totalsByPeriod  SpendingReport::totalsByPeriod() output
-     * @param  array<string, array{name: string, color: string, sort: int}>  $groups  config('expenses.groups')
+     * @param  array<string, array{name: string, color: string, sort: int}>  $groups  GroupCatalog::all()
      */
     public static function build(ReportMode $mode, array $importedMonths, array $totalsByPeriod, array $groups): self
     {

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Services\Rules\TextNormalizer;
+use App\Services\Statements\ParsedEntry;
 use Database\Factories\TransactionFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -11,10 +12,11 @@ use MongoDB\Laravel\Eloquent\Model;
 
 /**
  * @property list<string> $search
+ * @property array{group_key: ?string, share_divisor: int, ignored: bool}|null $declined the rerun result the user declined for this entry
  */
 #[Fillable([
     'statement_id', 'period', 'booked_on', 'value_on', 'type', 'counterparty', 'purpose', 'merchant',
-    'amount_cents', 'direction', 'group_key', 'share_divisor', 'ignored', 'rule_id',
+    'amount_cents', 'direction', 'group_key', 'share_divisor', 'ignored', 'rule_id', 'declined',
 ])]
 class Transaction extends Model
 {
@@ -31,6 +33,7 @@ class Transaction extends Model
         'share_divisor' => 1,
         'ignored' => false,
         'rule_id' => null,
+        'declined' => null,
     ];
 
     /**
@@ -87,5 +90,35 @@ class Transaction extends Model
     public function rule(): BelongsTo
     {
         return $this->belongsTo(Rule::class);
+    }
+
+    /**
+     * The entry as the rule matcher sees it.
+     */
+    public function toParsedEntry(): ParsedEntry
+    {
+        return new ParsedEntry(
+            bookedOn: $this->booked_on->format('Y-m-d'),
+            valueOn: $this->value_on->format('Y-m-d'),
+            type: (string) $this->type,
+            counterparty: $this->counterparty,
+            purpose: (string) $this->purpose,
+            merchant: (string) $this->merchant,
+            amountCents: $this->amount_cents,
+        );
+    }
+
+    /**
+     * How the entry is grouped now.
+     *
+     * @return array{group_key: ?string, share_divisor: int, ignored: bool}
+     */
+    public function result(): array
+    {
+        return [
+            'group_key' => $this->group_key,
+            'share_divisor' => $this->share_divisor,
+            'ignored' => $this->ignored,
+        ];
     }
 }

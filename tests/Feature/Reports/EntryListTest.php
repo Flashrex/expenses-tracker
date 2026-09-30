@@ -179,7 +179,7 @@ test('computes the counted share', function () {
 
 test('explains how entries were grouped', function () {
     importFixtureStatement();
-    $manual = Rule::factory()->manual()->create(['pattern' => 'Kiosk Nord', 'group_key' => 'takeaway']);
+    $manual = Rule::factory()->manual()->withCondition('merchant', 'contains', 'Kiosk Nord')->create(['group_key' => 'takeaway', 'position' => null]);
     $removed = Rule::factory()->create();
     $removedId = $removed->id;
     $removed->delete();

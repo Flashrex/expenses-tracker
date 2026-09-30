@@ -37,7 +37,7 @@ final readonly class EntryRow
         $groupedBy = match (true) {
             $transaction->rule_id !== null && $rule !== null => $rule->description(),
             $transaction->rule_id !== null => 'Rule (since removed)',
-            $transaction->group_key !== null => 'Picked manually',
+            $transaction->group_key !== null || $transaction->ignored || $transaction->declined !== null => 'Picked manually',
             default => 'Not grouped',
         };
 

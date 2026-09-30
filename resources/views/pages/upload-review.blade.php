@@ -2,6 +2,7 @@
 @use('App\Support\Period')
 
 @php
+    $groups = app(App\Services\Groups\GroupCatalog::class)->all();
     $primaryButton = 'inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 dark:bg-emerald-500 dark:text-slate-950 dark:hover:bg-emerald-400 dark:focus-visible:outline-emerald-400';
     $pickSelected = 'border-(--group) bg-(--group)/15 ring-1 ring-(--group) text-slate-900 dark:text-slate-100';
     $pickUnselected = 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-600';
@@ -13,7 +14,7 @@
     <div class="mx-auto max-w-3xl space-y-4" x-data="reviewQueue(@js([
         'state' => $queueState,
         'overrides' => (object) $overrides,
-        'groups' => collect(config('expenses.groups'))->map(fn (array $group) => ['name' => $group['name'], 'color' => $group['color']]),
+        'groups' => collect($groups)->map(fn (array $group) => ['name' => $group['name'], 'color' => $group['color']]),
         'assignUrl' => route('upload.assign', $period),
         'alwaysUrl' => route('upload.always', $period),
         'overrideUrl' => route('upload.override', $period),
@@ -188,7 +189,7 @@
                                 </div>
 
                                 <div role="group" aria-label="Group for {{ $entry->merchant }}" class="flex flex-wrap gap-1.5">
-                                    @foreach (config('expenses.groups') as $key => $group)
+                                    @foreach ($groups as $key => $group)
                                         @php($selected = $queueState['entries'][$i]['group'] === $key)
                                         <button type="button" data-pick="{{ $key }}"
                                             style="--group: {{ $group['color'] }}"
@@ -238,7 +239,7 @@
 
                 <ul data-review-rows class="divide-y divide-slate-100 dark:divide-slate-800">
                     @foreach ($rows as ['index' => $i, 'entry' => $entry, 'match' => $match, 'ruleText' => $ruleText, 'overridable' => $overridable])
-                        @include('pages.upload-review.row', ['ruleGroupName' => $match->groupKey !== null ? config("expenses.groups.{$match->groupKey}.name") : null])
+                        @include('pages.upload-review.row', ['ruleGroupName' => $match->groupKey !== null ? ($groups[$match->groupKey]['name'] ?? $match->groupKey) : null])
                     @endforeach
                 </ul>
             </div>

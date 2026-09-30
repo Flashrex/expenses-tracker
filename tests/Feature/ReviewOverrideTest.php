@@ -1,7 +1,6 @@
 <?php
 
 use App\Enums\RuleDirection;
-use App\Enums\RuleField;
 use App\Models\Rule;
 use App\Models\Transaction;
 use App\Models\User;
@@ -35,7 +34,7 @@ function reviewRow(string $html, int $index, string $attribute = 'data-review-ro
 }
 
 /** The opening tag of the first element in $html carrying $attribute. */
-function tagWith(string $html, string $attribute): string
+function reviewTagWith(string $html, string $attribute): string
 {
     preg_match('/<[a-z]+\b(?:[^>"]|"[^"]*")*\s'.$attribute.'[\s>=](?:[^>"]|"[^"]*")*>/', $html, $m);
 
@@ -99,10 +98,10 @@ test('keeps the override across a reload', function () {
 
     $row = reviewRow($this->get(route('upload.review', '2026-06'))->assertOk()->getContent(), 1);
 
-    expect(tagWith($row, 'data-override-marker'))->not->toContain('display: none')
+    expect(reviewTagWith($row, 'data-override-marker'))->not->toContain('display: none')
         ->and($row)->toMatch('/data-group-chip.*?<span class="truncate"[^>]*>Other<\/span>/s')
-        ->and(tagWith($row, 'data-reset'))->toContain('title="Reset to Rent"')->not->toContain('display: none')
-        ->and(tagWith($row, 'data-share'))->toContain('display: none')
+        ->and(reviewTagWith($row, 'data-reset'))->toContain('title="Reset to Rent"')->not->toContain('display: none')
+        ->and(reviewTagWith($row, 'data-share'))->toContain('display: none')
         ->and($row)->toMatch('/data-grouped-by[^>]*><span[^>]*>Picked manually<\/span>/');
 });
 
@@ -146,12 +145,10 @@ test('shows entry details for every entry', function () {
 });
 
 test('names manual rules like the overview', function () {
-    Rule::factory()->manual()->create([
-        'field' => RuleField::Merchant,
-        'pattern' => 'Echtzeitüberweisung',
+    Rule::factory()->manual()->withCondition('merchant', 'contains', 'Echtzeitüberweisung')->create([
         'direction' => RuleDirection::Out,
-        'priority' => Rule::MANUAL_PRIORITY,
         'group_key' => 'other',
+        'position' => null,
     ]);
     uploadJuneForOverride();
 
@@ -181,7 +178,7 @@ test('keeps the override for its month only', function () {
     $this->get(route('upload.review', '2026-06'))->assertOk();
 
     expect(session('statement_import.months.2026-06.overrides'))->toBe([])
-        ->and(tagWith(reviewRow($this->get(route('upload.review', '2026-05'))->getContent(), 1), 'data-override-marker'))
+        ->and(reviewTagWith(reviewRow($this->get(route('upload.review', '2026-05'))->getContent(), 1), 'data-override-marker'))
         ->not->toContain('display: none');
 });
 
@@ -208,7 +205,7 @@ test('stores the override on confirm without touching the rule', function () {
     $this->post(route('upload.confirm', '2026-06'))->assertRedirect(route('upload'));
 
     $rent = reviewRentTransaction();
-    $rentRule = Rule::query()->where('field', 'purpose')->where('pattern', 'Miete')->where('direction', 'out')->sole();
+    $rentRule = Rule::query()->where('conditions.0.field', 'purpose')->where('conditions.0.value', 'Miete')->where('direction', 'out')->sole();
     $energy = Transaction::query()->where('merchant', 'RhoenEnergie Fulda')->first();
 
     expect($rent->group_key)->toBe('other')

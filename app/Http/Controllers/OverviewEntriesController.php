@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Statement;
+use App\Services\Groups\GroupCatalog;
 use App\Services\Reports\EntryFilters;
 use App\Services\Reports\EntryList;
 use App\Services\Reports\ReportPeriod;
@@ -15,7 +16,7 @@ class OverviewEntriesController extends Controller
     /**
      * Render only the body of the Overview's entries card, for swapping it in place.
      */
-    public function __invoke(Request $request, EntryList $entryList): View|RedirectResponse
+    public function __invoke(Request $request, EntryList $entryList, GroupCatalog $groups): View|RedirectResponse
     {
         $imported = Statement::importedPeriods();
 
@@ -25,7 +26,7 @@ class OverviewEntriesController extends Controller
 
         abort_if($period === null, 404);
 
-        $filters = EntryFilters::fromQuery($request->query(), array_keys(config('expenses.groups')));
+        $filters = EntryFilters::fromQuery($request->query(), $groups->keys());
 
         if ($filters === null) {
             return redirect()->route('overview.entries', $period->query());

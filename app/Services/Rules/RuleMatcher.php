@@ -4,59 +4,73 @@ namespace App\Services\Rules;
 
 use App\Enums\RuleSource;
 use App\Models\Rule;
+use App\Services\Groups\GroupCatalog;
 use App\Services\Statements\ParsedEntry;
 
 final class RuleMatcher
 {
-    /** @var list<array{rule: Rule, pattern: string}> */
+    /** @var list<Rule> */
     private array $rules = [];
 
     /**
+     * Rules are checked in group order and by position inside a group, then the ignore rules by position,
+     * then the "Always use" rules (longer value first, then the older rule).
+     *
      * @param  iterable<Rule>  $rules
+     * @param  list<string>  $groupKeys  group order (GroupCatalog::keys())
      */
-    public function __construct(iterable $rules)
+    public function __construct(iterable $rules, array $groupKeys)
     {
-        foreach ($rules as $rule) {
-            $pattern = TextNormalizer::normalize($rule->pattern);
+        $groupRank = array_flip($groupKeys);
+        $sortKeys = [];
 
-            if ($pattern !== '') {
-                $this->rules[] = ['rule' => $rule, 'pattern' => $pattern];
+        foreach ($rules as $rule) {
+            if ($rule->conditionList() === []) {
+                continue;
             }
+
+            if (! $rule->ignore && ! isset($groupRank[$rule->group_key])) {
+                continue;
+            }
+
+            $id = (string) $rule->id;
+
+            $sortKeys[$id] = match (true) {
+                $rule->source === RuleSource::Manual => [2, 0, -mb_strlen(TextNormalizer::normalize((string) $rule->conditions[0]['value'])), $id],
+                $rule->ignore => [1, 0, $rule->position ?? PHP_INT_MAX, $id],
+                default => [0, $groupRank[$rule->group_key], $rule->position ?? PHP_INT_MAX, $id],
+            };
+
+            $this->rules[] = $rule;
         }
 
-        // Seeded rules before manual ones, then higher priority, then the more specific (longer) pattern, then the older rule.
-        usort($this->rules, fn (array $a, array $b) => [self::isSeeded($b['rule']), $b['rule']->priority, mb_strlen($b['pattern']), (string) $a['rule']->id]
-            <=> [self::isSeeded($a['rule']), $a['rule']->priority, mb_strlen($a['pattern']), (string) $b['rule']->id]);
-    }
-
-    private static function isSeeded(Rule $rule): bool
-    {
-        return $rule->source !== RuleSource::Manual;
+        usort($this->rules, fn (Rule $a, Rule $b) => $sortKeys[(string) $a->id] <=> $sortKeys[(string) $b->id]);
     }
 
     public static function fromDatabase(): self
     {
-        return new self(Rule::query()->get());
+        return new self(Rule::query()->get(), app(GroupCatalog::class)->keys());
     }
 
     public function match(ParsedEntry $entry): RuleMatch
     {
-        $direction = $entry->direction();
-        $normalized = [];
+        $rule = $this->firstMatch($entry);
 
-        foreach ($this->rules as ['rule' => $rule, 'pattern' => $pattern]) {
-            if (! $rule->direction->matches($direction)) {
-                continue;
-            }
+        return $rule === null ? RuleMatch::none() : RuleMatch::fromRule($rule);
+    }
 
-            $text = $normalized[$rule->field->value] ??= TextNormalizer::normalize($rule->field->valueOf($entry));
-
-            if (str_contains($text, $pattern)) {
-                return RuleMatch::fromRule($rule);
+    /**
+     * The first matching rule itself, for the rerun.
+     */
+    public function firstMatch(ParsedEntry $entry): ?Rule
+    {
+        foreach ($this->rules as $rule) {
+            if ($rule->matches($entry)) {
+                return $rule;
             }
         }
 
-        return RuleMatch::none();
+        return null;
     }
 
     /**

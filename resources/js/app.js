@@ -1,14 +1,20 @@
+import sort from '@alpinejs/sort';
 import Alpine from 'alpinejs';
 import donutChart from './donut-chart';
 import entriesCard from './entries-card';
+import groupsPage from './groups-page';
+import rerunPreview from './rerun-preview';
 import reviewQueue from './review-queue';
 import trendChart from './trend-chart';
 import uploadDropzone from './upload-dropzone';
 
 window.Alpine = Alpine;
+Alpine.plugin(sort);
 Alpine.data('reviewQueue', reviewQueue);
 Alpine.data('donutChart', donutChart);
 Alpine.data('trendChart', trendChart);
 Alpine.data('entriesCard', entriesCard);
 Alpine.data('uploadDropzone', uploadDropzone);
+Alpine.data('groupsPage', groupsPage);
+Alpine.data('rerunPreview', rerunPreview);
 Alpine.start();

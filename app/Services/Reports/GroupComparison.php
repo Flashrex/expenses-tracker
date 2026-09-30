@@ -23,7 +23,7 @@ final readonly class GroupComparison
     /**
      * Rows for every group spent on now or in the previous period, largest first.
      *
-     * @param  array<string, array{name: string, color: string, sort: int}>  $groups  config('expenses.groups')
+     * @param  array<string, array{name: string, color: string, sort: int}>  $groups  GroupCatalog::all()
      * @return list<self>
      */
     public static function rows(Totals $current, ?Totals $previous, array $groups): array
