@@ -83,6 +83,22 @@ test('searches descriptions', function () {
     $this->get(route('overview', ['month' => '2026-06', 'q' => 'birthday gift']))->assertSee('No entries match these filters');
 });
 
+test('shows the description read-only in the rerun preview', function () {
+    importFixtureStatement();
+    $spotify = Transaction::query()->where('merchant', 'Spotify')->sole();
+    $discovery = Transaction::query()->where('merchant', 'Discovery Communication s Benelux')->sole();
+    saveDescription($spotify, 'Family plan');
+    $spotify->update(['group_key' => 'hobbies']);
+    $discovery->update(['group_key' => 'hobbies']);
+
+    $this->post(route('groups.rerun.store'))->assertRedirect(route('groups.rerun'));
+    $html = $this->get(route('groups.rerun'))->assertOk()->getContent();
+
+    expect($html)->toMatch('/data-rerun-row="'.$spotify->id.'".*?data-description[^>]*>Family plan</s')
+        ->toMatch('/data-rerun-row="'.$discovery->id.'".*?data-description[^>]*>—</s')
+        ->not->toContain('data-description-field');
+});
+
 test('refuses guests', function () {
     importFixtureStatement();
     $amazon = amazonEntry();
