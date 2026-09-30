@@ -69,6 +69,7 @@ class RuleRerunController extends Controller
                     'type' => (string) $transaction->type,
                     'counterparty' => $transaction->counterparty === '' ? null : $transaction->counterparty,
                     'purpose' => (string) $transaction->purpose,
+                    'description' => $transaction->description,
                     'merchant' => (string) $transaction->merchant,
                     'amountCents' => $transaction->amount_cents,
                     'current' => $transaction->result(),

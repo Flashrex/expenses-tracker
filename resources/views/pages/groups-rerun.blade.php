@@ -81,7 +81,7 @@
                                 </button>
                             </div>
 
-                            <x-entry-details id="rerun-entry-{{ $row['id'] }}" :type="$row['type']" :counterparty="$row['counterparty']" :booked-on="$row['bookedOn']" :value-on="$row['valueOn']" :purpose="$row['purpose']">
+                            <x-entry-details id="rerun-entry-{{ $row['id'] }}" :type="$row['type']" :counterparty="$row['counterparty']" :booked-on="$row['bookedOn']" :value-on="$row['valueOn']" :purpose="$row['purpose']" :description="$row['description']">
                                 <x-slot:amount>@if ($isShared){{ Money::format($counted, true) }} ({{ Money::format($row['amountCents'], true) }} / {{ $proposed['share_divisor'] }})@else{{ Money::format($row['amountCents'], true) }}@if ($proposed['ignored'])<span class="text-slate-500 dark:text-slate-400"> · ignored</span>@endif @endif</x-slot:amount>
                                 <x-slot:group>@if ($proposed['group_key'] !== null && ! $proposed['ignored'])<x-group-chip :group="$proposed['group_key']" />@else—@endif</x-slot:group>
                                 <x-slot:grouped-by>{{ $row['ruleText'] }}</x-slot:grouped-by>

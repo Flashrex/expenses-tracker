@@ -25,6 +25,7 @@ final readonly class EntryRow
         public ?string $groupKey,
         public bool $ignored,
         public string $groupedBy,
+        public ?string $description,
     ) {}
 
     /**
@@ -57,6 +58,7 @@ final readonly class EntryRow
             groupKey: $transaction->group_key,
             ignored: $transaction->ignored,
             groupedBy: $groupedBy,
+            description: $transaction->description,
         );
     }
 

@@ -1,4 +1,4 @@
-@props(['id', 'type', 'counterparty' => null, 'bookedOn', 'valueOn', 'purpose'])
+@props(['id', 'type', 'counterparty' => null, 'bookedOn', 'valueOn', 'purpose', 'description' => null])
 
 @php
     $label = 'text-xs text-slate-500 dark:text-slate-400';
@@ -24,5 +24,14 @@
     <dl class="mt-3">
         <dt class="{{ $label }}">Purpose</dt>
         <dd data-purpose class="mt-1 whitespace-pre-line wrap-break-word">{{ $purpose === '' ? '—' : $purpose }}</dd>
+    </dl>
+    <dl class="mt-3">
+        @isset($descriptionField)
+            <dt class="{{ $label }}"><label for="{{ $id }}-description">Description</label></dt>
+            <dd class="mt-1">{{ $descriptionField }}</dd>
+        @else
+            <dt class="{{ $label }}">Description</dt>
+            <dd data-description class="mt-1 whitespace-pre-line wrap-break-word">{{ $description ?? '—' }}</dd>
+        @endisset
     </dl>
 </div>

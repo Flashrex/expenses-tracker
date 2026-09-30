@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\EntryDescriptionController;
 use App\Http\Controllers\GroupController;
 use App\Http\Controllers\ManualRuleController;
 use App\Http\Controllers\OverviewController;
@@ -22,6 +23,7 @@ Route::middleware(['auth', DiscardPendingStatementImport::class])->group(functio
     Route::get('/', fn () => redirect()->route('overview'))->name('home');
     Route::get('/overview', OverviewController::class)->name('overview');
     Route::get('/overview/entries', OverviewEntriesController::class)->name('overview.entries');
+    Route::put('/entries/{transaction}/description', EntryDescriptionController::class)->name('entries.description.update');
     Route::get('/trends', TrendsController::class)->name('trends');
 
     Route::get('/upload', [StatementUploadController::class, 'create'])->name('upload');
