@@ -23,7 +23,7 @@ final readonly class EntryFilters
      * Filters from the query string, or null when any value is invalid.
      *
      * @param  array<string, mixed>  $query  $request->query()
-     * @param  list<string>  $groupKeys  array_keys(config('expenses.groups'))
+     * @param  list<string>  $groupKeys  GroupCatalog::keys()
      */
     public static function fromQuery(array $query, array $groupKeys): ?self
     {

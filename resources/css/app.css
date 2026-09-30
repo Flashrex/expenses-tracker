@@ -8,19 +8,6 @@
         'Segoe UI Symbol', 'Noto Color Emoji';
 }
 
-@theme static {
-    --color-group-rent: #6366f1;
-    --color-group-utilities: #f59e0b;
-    --color-group-groceries: #10b981;
-    --color-group-subscriptions: #8b5cf6;
-    --color-group-hobbies: #ec4899;
-    --color-group-online-orders: #0ea5e9;
-    --color-group-takeaway: #f97316;
-    --color-group-restaurants: #f43f5e;
-    --color-group-health: #14b8a6;
-    --color-group-other: #94a3b8;
-}
-
 @layer base {
     html {
         color-scheme: light dark;

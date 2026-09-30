@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Statement;
+use App\Services\Groups\GroupCatalog;
 use App\Services\Reports\EntryFilters;
 use App\Services\Reports\EntryList;
 use App\Services\Reports\GroupComparison;
@@ -18,7 +19,7 @@ class OverviewController extends Controller
     /**
      * Show spending by group for one imported month or year, compared with the previous period, and its entries.
      */
-    public function __invoke(Request $request, SpendingReport $report, EntryList $entryList): View|RedirectResponse
+    public function __invoke(Request $request, SpendingReport $report, EntryList $entryList, GroupCatalog $groups): View|RedirectResponse
     {
         $imported = Statement::importedPeriods();
 
@@ -32,7 +33,7 @@ class OverviewController extends Controller
             return redirect()->route('overview');
         }
 
-        $filters = EntryFilters::fromQuery($request->query(), array_keys(config('expenses.groups')));
+        $filters = EntryFilters::fromQuery($request->query(), $groups->keys());
 
         if ($filters === null) {
             return redirect()->route('overview', $period->query());
@@ -50,7 +51,7 @@ class OverviewController extends Controller
         $totals = $report->totals($period->from(), $period->to());
         $previousTotals = $hasPrevious ? $report->totals($previous->from(), $previous->to()) : null;
 
-        $rows = GroupComparison::rows($totals, $previousTotals, config('expenses.groups'));
+        $rows = GroupComparison::rows($totals, $previousTotals, $groups->all());
 
         $chart = [
             'total' => Money::format($totals->spentCents),

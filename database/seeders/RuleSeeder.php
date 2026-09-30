@@ -6,6 +6,7 @@ use App\Enums\RuleDirection;
 use App\Enums\RuleField;
 use App\Enums\RuleSource;
 use App\Models\Rule;
+use App\Services\Groups\GroupCatalog;
 use App\Services\Rules\TextNormalizer;
 use Illuminate\Database\Seeder;
 use InvalidArgumentException;
@@ -52,7 +53,7 @@ class RuleSeeder extends Seeder
      */
     private function validate(array $rows): array
     {
-        $groups = array_keys(config('expenses.groups'));
+        $groups = app(GroupCatalog::class)->keys();
         $keys = [];
 
         foreach ($rows as $index => $row) {

@@ -1,6 +1,8 @@
 <?php
 
 /**
+ * Groups are only the initial set: the migration copies them into the groups collection once; at runtime groups come from the database (GroupCatalog).
+ *
  * @return array{groups: array<string, array{name: string, color: string, sort: int}>, rules: list<array{field: string, pattern: string, direction: string, group_key?: string, share_divisor?: int, priority?: int, ignore?: bool}>}
  */
 return [
