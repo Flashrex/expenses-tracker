@@ -2,6 +2,7 @@
     x-data="entriesCard"
     data-page-url="{{ route('overview') }}"
     data-fragment-url="{{ route('overview.entries') }}"
+    data-csrf="{{ csrf_token() }}"
     class="scroll-mt-20 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6 dark:border-slate-800 dark:bg-slate-900">
     <div class="flex flex-wrap items-center justify-between gap-3">
         <h2 id="entries-heading" class="text-sm font-semibold">Entries</h2>

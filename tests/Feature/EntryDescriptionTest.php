@@ -28,6 +28,19 @@ function describedRow(string $html, Transaction $transaction): string
     return html_entity_decode($match[0] ?? '');
 }
 
+test('saves a description and shows it on the overview', function () {
+    importFixtureStatement();
+    $amazon = amazonEntry();
+
+    saveDescription($amazon, "  Birthday gift for Anna\n")->assertOk()->assertExactJson(['description' => 'Birthday gift for Anna']);
+
+    $row = describedRow($this->get(route('overview', ['month' => '2026-06', 'q' => 'amazon']))->getContent(), $amazon);
+
+    expect($amazon->fresh()->description)->toBe('Birthday gift for Anna')
+        ->and($row)->toMatch('/AMAZON<\/span>\s*<span data-row-description[^>]*title="Birthday gift for Anna"[^>]*>Birthday gift for Anna</')
+        ->toMatch('/<textarea[^>]*data-description-field[^>]*>Birthday gift for Anna<\/textarea>/');
+});
+
 test('keeps line breaks', function () {
     importFixtureStatement();
 
@@ -35,6 +48,18 @@ test('keeps line breaks', function () {
 
     expect(amazonEntry()->description)->toBe("Gift\nfor Anna");
 });
+
+test('removes the description when saved empty', function (?string $empty) {
+    importFixtureStatement();
+    $amazon = amazonEntry();
+    saveDescription($amazon, 'Birthday gift for Anna');
+
+    saveDescription($amazon, $empty)->assertOk()->assertExactJson(['description' => null]);
+
+    expect($amazon->fresh()->description)->toBeNull()
+        ->and(describedRow($this->get(route('overview', ['month' => '2026-06', 'q' => 'amazon']))->getContent(), $amazon))
+        ->toContain('style="display: none"');
+})->with(['empty' => '', 'whitespace' => " \n  ", 'null' => null]);
 
 test('rejects descriptions longer than 500 characters', function () {
     importFixtureStatement();
