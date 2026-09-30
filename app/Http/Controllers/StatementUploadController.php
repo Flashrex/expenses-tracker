@@ -13,6 +13,7 @@ use App\Http\Requests\StoreStatementUploadRequest;
 use App\Http\Requests\ToggleAlwaysRuleRequest;
 use App\Models\Rule;
 use App\Models\Statement;
+use App\Models\Transaction;
 use App\Services\Rules\RuleMatch;
 use App\Services\Rules\RuleMatcher;
 use App\Services\Statements\ImportBatch;
@@ -27,6 +28,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
@@ -288,14 +290,20 @@ class StatementUploadController extends Controller
         }
 
         DB::transaction(function () use ($parsed, $queue, $batch, $period) {
-            Statement::query()
+            $replaced = Statement::query()
                 ->where('number', $parsed->number)
                 ->where('period', $parsed->period)
-                ->get()
-                ->each(function (Statement $old) {
-                    $old->transactions()->delete();
-                    $old->delete();
-                });
+                ->get();
+
+            $descriptions = $this->carriedDescriptions(
+                $replaced->flatMap(fn (Statement $old) => $old->transactions()->orderBy('_id')->get()),
+                $parsed->entries,
+            );
+
+            $replaced->each(function (Statement $old) {
+                $old->transactions()->delete();
+                $old->delete();
+            });
 
             $statement = Statement::create([
                 'number' => $parsed->number,
@@ -326,14 +334,15 @@ class StatementUploadController extends Controller
                 $ruleIds[$key] = $rule->id;
             }
 
-            $statement->transactions()->createMany(array_map(fn (ParsedEntry $entry, RuleMatch $match) => [
+            $statement->transactions()->createMany(array_map(fn (ParsedEntry $entry, RuleMatch $match, ?string $description) => [
                 ...$entry->toArray(),
                 'period' => $parsed->period,
                 'group_key' => $match->groupKey,
                 'share_divisor' => $match->shareDivisor,
                 'ignored' => $match->ignored,
                 'rule_id' => $match->ruleId,
-            ], $parsed->entries, $batch->finalMatches($period, $ruleIds)));
+                'description' => $description,
+            ], $parsed->entries, $batch->finalMatches($period, $ruleIds), $descriptions));
         });
 
         $batch->markConfirmed($period);
@@ -420,6 +429,27 @@ class StatementUploadController extends Controller
             isset($failed['Max']) => 'larger than 10 MB',
             default => null,
         };
+    }
+
+    /**
+     * The description each new entry takes over from a replaced entry with the same booking date, amount,
+     * merchant and purpose; identical entries pass theirs on in booking order.
+     *
+     * @param  Collection<int, Transaction>  $replaced  in the order they were imported
+     * @param  list<ParsedEntry>  $entries
+     * @return list<?string> per entry
+     */
+    private function carriedDescriptions(Collection $replaced, array $entries): array
+    {
+        $queues = $replaced->groupBy(fn (Transaction $old) => Transaction::descriptionKey(
+            $old->booked_on->format('Y-m-d'), $old->amount_cents, (string) $old->merchant, (string) $old->purpose,
+        ))->map(fn (Collection $group) => $group->pluck('description')->all())->all();
+
+        return array_map(function (ParsedEntry $entry) use (&$queues) {
+            $key = Transaction::descriptionKey($entry->bookedOn, $entry->amountCents, $entry->merchant, $entry->purpose);
+
+            return isset($queues[$key]) ? array_shift($queues[$key]) : null;
+        }, $entries);
     }
 
     /**

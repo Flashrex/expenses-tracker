@@ -95,6 +95,14 @@ class Transaction extends Model
     }
 
     /**
+     * What a new import of the same statement must repeat for this entry to keep its description.
+     */
+    public static function descriptionKey(string $bookedOn, int $amountCents, string $merchant, string $purpose): string
+    {
+        return implode("\0", [$bookedOn, $amountCents, $merchant, $purpose]);
+    }
+
+    /**
      * The entry as the rule matcher sees it.
      */
     public function toParsedEntry(): ParsedEntry

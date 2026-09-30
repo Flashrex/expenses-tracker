@@ -83,6 +83,36 @@ test('searches descriptions', function () {
     $this->get(route('overview', ['month' => '2026-06', 'q' => 'birthday gift']))->assertSee('No entries match these filters');
 });
 
+test('keeps descriptions when the month is uploaded again', function () {
+    importFixtureStatement();
+    saveDescription(amazonEntry(), 'Birthday gift for Anna');
+
+    $this->post(route('upload.store'), ['statements' => [statementUpload()]]);
+    assignOpenEntries();
+    $this->post(route('upload.confirm', '2026-06'))->assertRedirect(route('upload'));
+
+    expect(Transaction::count())->toBe(69)
+        ->and(amazonEntry()->description)->toBe('Birthday gift for Anna')
+        ->and(Transaction::query()->whereNotNull('description')->count())->toBe(1);
+});
+
+test('passes descriptions of identical entries on in booking order', function () {
+    $amazon = fixtureStatement()->entries[5];
+    $identical = ['booked_on' => $amazon->bookedOn, 'amount_cents' => $amazon->amountCents, 'merchant' => $amazon->merchant, 'purpose' => $amazon->purpose];
+    importedMonth('2026-06', [
+        [...$identical, 'description' => 'First'],
+        [...$identical, 'description' => 'Second'],
+        [...$identical, 'amount_cents' => -1, 'description' => 'No match'],
+    ]);
+
+    $this->seed(RuleSeeder::class);
+    $this->post(route('upload.store'), ['statements' => [statementUpload()]]);
+    assignOpenEntries();
+    $this->post(route('upload.confirm', '2026-06'));
+
+    expect(Transaction::query()->whereNotNull('description')->pluck('description')->all())->toBe(['First']);
+});
+
 test('shows the description read-only in the rerun preview', function () {
     importFixtureStatement();
     $spotify = Transaction::query()->where('merchant', 'Spotify')->sole();
