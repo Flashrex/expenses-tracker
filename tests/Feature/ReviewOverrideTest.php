@@ -35,7 +35,7 @@ function reviewRow(string $html, int $index, string $attribute = 'data-review-ro
 }
 
 /** The opening tag of the first element in $html carrying $attribute. */
-function tagWith(string $html, string $attribute): string
+function reviewTagWith(string $html, string $attribute): string
 {
     preg_match('/<[a-z]+\b(?:[^>"]|"[^"]*")*\s'.$attribute.'[\s>=](?:[^>"]|"[^"]*")*>/', $html, $m);
 
@@ -99,10 +99,10 @@ test('keeps the override across a reload', function () {
 
     $row = reviewRow($this->get(route('upload.review', '2026-06'))->assertOk()->getContent(), 1);
 
-    expect(tagWith($row, 'data-override-marker'))->not->toContain('display: none')
+    expect(reviewTagWith($row, 'data-override-marker'))->not->toContain('display: none')
         ->and($row)->toMatch('/data-group-chip.*?<span class="truncate"[^>]*>Other<\/span>/s')
-        ->and(tagWith($row, 'data-reset'))->toContain('title="Reset to Rent"')->not->toContain('display: none')
-        ->and(tagWith($row, 'data-share'))->toContain('display: none')
+        ->and(reviewTagWith($row, 'data-reset'))->toContain('title="Reset to Rent"')->not->toContain('display: none')
+        ->and(reviewTagWith($row, 'data-share'))->toContain('display: none')
         ->and($row)->toMatch('/data-grouped-by[^>]*><span[^>]*>Picked manually<\/span>/');
 });
 
@@ -181,7 +181,7 @@ test('keeps the override for its month only', function () {
     $this->get(route('upload.review', '2026-06'))->assertOk();
 
     expect(session('statement_import.months.2026-06.overrides'))->toBe([])
-        ->and(tagWith(reviewRow($this->get(route('upload.review', '2026-05'))->getContent(), 1), 'data-override-marker'))
+        ->and(reviewTagWith(reviewRow($this->get(route('upload.review', '2026-05'))->getContent(), 1), 'data-override-marker'))
         ->not->toContain('display: none');
 });
 
