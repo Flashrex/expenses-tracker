@@ -48,6 +48,14 @@
 
         <div class="flex flex-wrap items-center justify-between gap-3">
             <h1 class="text-lg font-semibold">Groups &amp; rules</h1>
+            <form method="POST" action="{{ route('groups.rerun.store') }}" class="flex items-center gap-3">
+                @csrf
+                <span data-rerun-hint x-show="anyDirty" x-cloak class="text-xs text-slate-500 dark:text-slate-400">Save your changes first</span>
+                <button type="submit" data-rerun :disabled="anyDirty" class="{{ $primaryButton }} disabled:cursor-not-allowed disabled:opacity-50">
+                    <x-heroicon-m-arrow-path class="size-4" />
+                    Rerun all rules
+                </button>
+            </form>
         </div>
 
         <div data-block-bar class="sticky top-16 z-[5] rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-900/95">

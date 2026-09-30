@@ -49,7 +49,7 @@ test('lists groups, rules and always rules in order', function () {
     expect($takeaway['always'])->toBe([['id' => (string) $manual->id, 'text' => 'merchant contains "Kiosk Nord"']])
         ->and(collect($takeaway['rules'])->pluck('id'))->not->toContain((string) $manual->id);
 
-    $response->assertSee('data-block="amount"', false);
+    $response->assertSee('data-block="amount"', false)->assertSee('Rerun all rules');
 });
 
 test('discards a pending upload', function () {

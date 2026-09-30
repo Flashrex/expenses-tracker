@@ -56,6 +56,8 @@ class GroupController extends Controller
             return $this->stale();
         }
 
+        $this->forgetRerun();
+
         return response()->json(['card' => $cards->card($group->fresh())], 201);
     }
 
@@ -77,6 +79,8 @@ class GroupController extends Controller
             return $this->stale();
         }
 
+        $this->forgetRerun();
+
         return response()->json(['card' => $cards->card($group->fresh())]);
     }
 
@@ -90,6 +94,8 @@ class GroupController extends Controller
         } catch (StaleCardException) {
             return $this->stale();
         }
+
+        $this->forgetRerun();
 
         return response()->json(['card' => $cards->ignoredCard()]);
     }
@@ -111,6 +117,8 @@ class GroupController extends Controller
         }
 
         Group::reorder($keys);
+        $this->forgetRerun();
+
         return response()->noContent();
     }
 
@@ -132,11 +140,18 @@ class GroupController extends Controller
             $group->delete();
         });
 
+        $this->forgetRerun();
+
         return response()->noContent();
     }
 
     private function stale(): JsonResponse
     {
         return response()->json(['message' => 'stale'], 409);
+    }
+
+    private function forgetRerun(): void
+    {
+        session()->forget(RuleRerunController::SESSION_KEY);
     }
 }

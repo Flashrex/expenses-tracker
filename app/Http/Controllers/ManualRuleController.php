@@ -16,6 +16,7 @@ class ManualRuleController extends Controller
         abort_unless($rule->source === RuleSource::Manual, 404);
 
         $rule->delete();
+        session()->forget(RuleRerunController::SESSION_KEY);
 
         return response()->noContent();
     }

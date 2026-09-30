@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\RuleRerunController;
 use App\Models\Group;
 use App\Models\Rule;
 use App\Models\Transaction;
@@ -206,3 +207,18 @@ test('deletes only always rules through the rule route', function () {
     expect(Rule::find($manual->id))->toBeNull()
         ->and(groupsRentRule())->not->toBeNull();
 });
+
+test('clears a pending rerun on every save', function (Closure $save) {
+    session([RuleRerunController::SESSION_KEY => ['proposals' => ['x' => []], 'decisions' => []]]);
+
+    $save();
+
+    expect(session()->has(RuleRerunController::SESSION_KEY))->toBeFalse();
+})->with([
+    'new group' => [fn () => test()->postJson(route('groups.store'), groupsCard())->assertCreated()],
+    'group' => [fn () => test()->putJson(route('groups.update', 'health'), groupsCard('Health'))->assertOk()],
+    'ignored' => [fn () => test()->putJson(route('groups.ignored.update'), ['rules' => []])->assertOk()],
+    'order' => [fn () => test()->putJson(route('groups.order'), ['groups' => app(GroupCatalog::class)->keys()])->assertNoContent()],
+    'delete group' => [fn () => test()->deleteJson(route('groups.destroy', 'health'), ['move_to' => 'other'])->assertNoContent()],
+    'delete always rule' => [fn () => test()->deleteJson(route('rules.destroy', Rule::factory()->manual()->create(['position' => null])))->assertNoContent()],
+]);
