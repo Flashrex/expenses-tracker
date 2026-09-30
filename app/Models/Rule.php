@@ -71,4 +71,13 @@ class Rule extends Model
     {
         return $this->hasMany(Transaction::class);
     }
+
+    /**
+     * How the rule reads in entry details: `Rule · purpose contains "Miete"` or `Manual rule · merchant contains "…"`.
+     */
+    public function description(): string
+    {
+        return ($this->source === RuleSource::Manual ? 'Manual rule' : 'Rule')
+            .' · '.$this->field->value.' contains "'.$this->pattern.'"';
+    }
 }

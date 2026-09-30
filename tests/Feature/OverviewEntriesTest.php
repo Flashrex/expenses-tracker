@@ -101,7 +101,7 @@ test('renders shared amounts with the full bank amount', function () {
         ->toMatch('/data-full-amount[^>]*>−1.158,20 €</')
         ->toMatch('/data-purpose[^>]*>Miete</')
         ->toMatch('/data-grouped-by[^>]*>Rule · purpose contains "Miete"</')
-        ->toContain('−1.158,20 € ÷3 = −386,07 €')
+        ->toContain('−386,07 € (−1.158,20 € / 3)')
         ->toContain('01.06.2026');
 });
 

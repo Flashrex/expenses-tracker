@@ -3,7 +3,6 @@
 @php
     $tone = $row->amountCents < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400';
     $hasChips = $row->groupKey !== null || $row->ignored || $row->isUnassigned() || $row->isShared();
-    $label = 'text-xs text-slate-500 dark:text-slate-400';
 @endphp
 
 <li data-entry="{{ $row->id }}" x-data="{ open: false }" @class(['opacity-50' => $row->ignored])>
@@ -37,40 +36,23 @@
         <span class="mt-0.5 shrink-0 text-slate-400 transition" :class="open && 'rotate-180'"><x-heroicon-m-chevron-down class="size-4" /></span>
     </button>
 
-    <div id="entry-{{ $row->id }}" data-entry-details x-show="open" x-cloak class="pb-4 pl-15 text-sm">
-        <dl class="grid gap-x-6 gap-y-2 sm:grid-cols-[max-content_1fr_max-content_1fr]">
-            <dt class="{{ $label }}">Type</dt>
-            <dd>{{ $row->type }}</dd>
-            <dt class="{{ $label }}">Counterparty</dt>
-            <dd class="wrap-break-word">{{ $row->counterparty ?? '—' }}</dd>
-            <dt class="{{ $label }}">Booked</dt>
-            <dd class="tabular-nums">{{ $row->bookedOn }}</dd>
-            <dt class="{{ $label }}">Value</dt>
-            <dd class="tabular-nums">{{ $row->valueOn }}</dd>
-            <dt class="{{ $label }}">Amount</dt>
-            <dd data-detail-amount class="tabular-nums">
-                @if ($row->isShared())
-                    {{ Money::format($row->amountCents, true) }} ÷{{ $row->shareDivisor }} = {{ Money::format($row->countedCents, true) }}
-                @else
-                    {{ Money::format($row->amountCents, true) }}@if ($row->ignored)<span class="text-slate-500 dark:text-slate-400"> · ignored</span>@endif
-                @endif
-            </dd>
-            <dt class="{{ $label }}">Group</dt>
-            <dd>
-                @if ($row->groupKey !== null)
-                    <x-group-chip :group="$row->groupKey" />
-                @elseif ($row->isUnassigned())
-                    Unassigned
-                @else
-                    —
-                @endif
-            </dd>
-            <dt class="{{ $label }}">Grouped by</dt>
-            <dd data-grouped-by class="sm:col-span-3">{{ $row->groupedBy }}</dd>
-        </dl>
-        <dl class="mt-3">
-            <dt class="{{ $label }}">Purpose</dt>
-            <dd data-purpose class="mt-1 whitespace-pre-line wrap-break-word">{{ $row->purpose === '' ? '—' : $row->purpose }}</dd>
-        </dl>
-    </div>
+    <x-entry-details id="entry-{{ $row->id }}" :type="$row->type" :counterparty="$row->counterparty" :booked-on="$row->bookedOn" :value-on="$row->valueOn" :purpose="$row->purpose">
+        <x-slot:amount>
+            @if ($row->isShared())
+                {{ Money::format($row->countedCents, true) }} ({{ Money::format($row->amountCents, true) }} / {{ $row->shareDivisor }})
+            @else
+                {{ Money::format($row->amountCents, true) }}@if ($row->ignored)<span class="text-slate-500 dark:text-slate-400"> · ignored</span>@endif
+            @endif
+        </x-slot:amount>
+        <x-slot:group>
+            @if ($row->groupKey !== null)
+                <x-group-chip :group="$row->groupKey" />
+            @elseif ($row->isUnassigned())
+                Unassigned
+            @else
+                —
+            @endif
+        </x-slot:group>
+        <x-slot:grouped-by>{{ $row->groupedBy }}</x-slot:grouped-by>
+    </x-entry-details>
 </li>

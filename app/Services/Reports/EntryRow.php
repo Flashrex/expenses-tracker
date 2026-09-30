@@ -2,7 +2,6 @@
 
 namespace App\Services\Reports;
 
-use App\Enums\RuleSource;
 use App\Models\Transaction;
 
 /**
@@ -36,8 +35,7 @@ final readonly class EntryRow
         $rule = $transaction->rule;
 
         $groupedBy = match (true) {
-            $transaction->rule_id !== null && $rule !== null => ($rule->source === RuleSource::Manual ? 'Manual rule' : 'Rule')
-                .' · '.$rule->field->value.' contains "'.$rule->pattern.'"',
+            $transaction->rule_id !== null && $rule !== null => $rule->description(),
             $transaction->rule_id !== null => 'Rule (since removed)',
             $transaction->group_key !== null => 'Picked manually',
             default => 'Not grouped',
