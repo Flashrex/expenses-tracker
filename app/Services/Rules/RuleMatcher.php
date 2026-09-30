@@ -2,6 +2,7 @@
 
 namespace App\Services\Rules;
 
+use App\Enums\RuleSource;
 use App\Models\Rule;
 use App\Services\Statements\ParsedEntry;
 
@@ -23,9 +24,14 @@ final class RuleMatcher
             }
         }
 
-        // Higher priority first, then the more specific (longer) pattern, then the older rule.
-        usort($this->rules, fn (array $a, array $b) => [$b['rule']->priority, mb_strlen($b['pattern']), (string) $a['rule']->id]
-            <=> [$a['rule']->priority, mb_strlen($a['pattern']), (string) $b['rule']->id]);
+        // Seeded rules before manual ones, then higher priority, then the more specific (longer) pattern, then the older rule.
+        usort($this->rules, fn (array $a, array $b) => [self::isSeeded($b['rule']), $b['rule']->priority, mb_strlen($b['pattern']), (string) $a['rule']->id]
+            <=> [self::isSeeded($a['rule']), $a['rule']->priority, mb_strlen($a['pattern']), (string) $b['rule']->id]);
+    }
+
+    private static function isSeeded(Rule $rule): bool
+    {
+        return $rule->source !== RuleSource::Manual;
     }
 
     public static function fromDatabase(): self

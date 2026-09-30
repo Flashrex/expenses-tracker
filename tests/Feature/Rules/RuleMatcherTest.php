@@ -157,6 +157,16 @@ test('prefers the longer pattern at equal priority', function () {
     expect($matcher->match(entry(-1000, 'VISA AMAZON MARKETPLACE* X1'))->groupKey)->toBe('other');
 });
 
+test('prefers seeded rules over manual rules of higher priority', function () {
+    Rule::factory()->manual()->create(['pattern' => 'Peter Hein', 'priority' => Rule::MANUAL_PRIORITY, 'group_key' => 'other']);
+    $matcher = RuleMatcher::fromDatabase();
+
+    $rent = $matcher->match(entry(-113000, 'Peter Hein', 'Miete Bahnhofstrasse 13', 'Dauerauftrag/Terminueberw.'));
+    expect($rent->groupKey)->toBe('rent')->and($rent->shareDivisor)->toBe(3);
+
+    expect($matcher->match(entry(-23873, 'Peter Hein', 'Nebenkosten Abrechnung 2025', 'Ueberweisung'))->groupKey)->toBe('other');
+});
+
 test('falls back to the older rule on a full tie', function () {
     $matcher = new RuleMatcher([
         Rule::factory()->create(['pattern' => 'TEGUT', 'group_key' => 'groceries']),

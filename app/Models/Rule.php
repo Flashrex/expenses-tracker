@@ -29,7 +29,7 @@ class Rule extends Model
     use HasFactory;
 
     /**
-     * Priority of rules the user creates while reviewing, so they win over seeded rules.
+     * Priority of rules the user creates while reviewing; it only orders manual rules among themselves, seeded rules always match first.
      */
     public const MANUAL_PRIORITY = 300;
 
