@@ -12,11 +12,12 @@ use MongoDB\Laravel\Eloquent\Model;
 
 /**
  * @property list<string> $search
+ * @property ?string $description the user's own note on the entry
  * @property array{group_key: ?string, share_divisor: int, ignored: bool}|null $declined the rerun result the user declined for this entry
  */
 #[Fillable([
     'statement_id', 'period', 'booked_on', 'value_on', 'type', 'counterparty', 'purpose', 'merchant',
-    'amount_cents', 'direction', 'group_key', 'share_divisor', 'ignored', 'rule_id', 'declined',
+    'amount_cents', 'direction', 'group_key', 'share_divisor', 'ignored', 'rule_id', 'declined', 'description',
 ])]
 class Transaction extends Model
 {
@@ -34,25 +35,26 @@ class Transaction extends Model
         'ignored' => false,
         'rule_id' => null,
         'declined' => null,
+        'description' => null,
     ];
 
     /**
-     * Normalized merchant, counterparty and purpose, so search matches text with stray spaces and umlauts.
+     * Normalized merchant, counterparty, purpose and description, so search matches text with stray spaces and umlauts.
      *
      * @return list<string>
      */
-    public static function searchTermsFor(?string $merchant, ?string $counterparty, ?string $purpose): array
+    public static function searchTermsFor(?string $merchant, ?string $counterparty, ?string $purpose, ?string $description = null): array
     {
         return array_values(array_filter(array_map(
             TextNormalizer::normalize(...),
-            [$merchant, $counterparty, $purpose],
+            [$merchant, $counterparty, $purpose, $description],
         ), fn (string $term) => $term !== ''));
     }
 
     protected static function booted(): void
     {
         static::saving(function (Transaction $transaction) {
-            $transaction->search = self::searchTermsFor($transaction->merchant, $transaction->counterparty, $transaction->purpose);
+            $transaction->search = self::searchTermsFor($transaction->merchant, $transaction->counterparty, $transaction->purpose, $transaction->description);
         });
     }
 
