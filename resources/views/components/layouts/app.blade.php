@@ -26,12 +26,7 @@
                     <x-nav-link :href="route('upload')" :active="request()->routeIs('upload', 'upload.*')" icon="heroicon-o-arrow-up-tray" label="Upload" />
                 </nav>
 
-                <form method="POST" action="{{ route('logout') }}">
-                    @csrf
-                    <button type="submit" title="Log out" aria-label="Log out" class="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-2 focus-visible:outline-emerald-600 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100 dark:focus-visible:outline-emerald-400">
-                        <x-heroicon-o-arrow-right-start-on-rectangle class="size-6" />
-                    </button>
-                </form>
+                <x-user-menu />
             </div>
         </header>
 

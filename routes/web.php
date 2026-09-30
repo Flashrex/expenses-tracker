@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\GroupController;
+use App\Http\Controllers\ManualRuleController;
 use App\Http\Controllers\OverviewController;
 use App\Http\Controllers\OverviewEntriesController;
 use App\Http\Controllers\StatementUploadController;
@@ -31,4 +33,12 @@ Route::middleware(['auth', DiscardPendingStatementImport::class])->group(functio
     Route::post('/upload/review/{period}/override', [StatementUploadController::class, 'override'])->where('period', '[0-9]{4}-[0-9]{2}')->name('upload.override');
     Route::post('/upload/discard', [StatementUploadController::class, 'discard'])->name('upload.discard');
     Route::post('/upload/notice/dismiss', [StatementUploadController::class, 'dismissNotice'])->name('upload.notice.dismiss');
+
+    Route::get('/groups', [GroupController::class, 'index'])->name('groups');
+    Route::post('/groups', [GroupController::class, 'store'])->name('groups.store');
+    Route::put('/groups/order', [GroupController::class, 'order'])->name('groups.order');
+    Route::put('/groups/ignored', [GroupController::class, 'updateIgnored'])->name('groups.ignored.update');
+    Route::put('/groups/{group:key}', [GroupController::class, 'update'])->name('groups.update');
+    Route::delete('/groups/{group:key}', [GroupController::class, 'destroy'])->name('groups.destroy');
+    Route::delete('/rules/{rule}', [ManualRuleController::class, 'destroy'])->name('rules.destroy');
 });
