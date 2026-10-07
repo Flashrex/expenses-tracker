@@ -92,7 +92,7 @@ test('passes the donut data to the chart', function () {
     expect($chart['total'])->toBe('1.686,28 €')
         ->and($chart['label'])->toBe('Spent')
         ->and($chart['slices'])->toHaveCount(10)
-        ->and($chart['slices'][0])->toBe(['key' => 'rent', 'name' => 'Rent', 'value' => 38607, 'color' => '#6366f1', 'amount' => '386,07 €']);
+        ->and($chart['slices'][0])->toBe(['key' => 'rent', 'name' => 'Rent', 'value' => 38607, 'color' => '#7f81d5', 'amount' => '386,07 €']);
     $response->assertSee('x-data="donutChart"', false);
 });
 

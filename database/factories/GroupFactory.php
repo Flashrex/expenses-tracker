@@ -21,7 +21,7 @@ class GroupFactory extends Factory
         return [
             'key' => Str::lower((string) Str::ulid()),
             'name' => fake()->unique()->words(2, true),
-            'color' => '#d946ef',
+            'color' => '#c068cd',
             'position' => 100,
         ];
     }

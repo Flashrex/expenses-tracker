@@ -74,7 +74,7 @@ test('passes the monthly series to the chart', function () {
             'rent', 'utilities', 'groceries', 'subscriptions', 'hobbies',
             'online_orders', 'takeaway', 'restaurants', 'health', 'other',
         ])
-        ->and($series['rent'])->toBe(['key' => 'rent', 'name' => 'Rent', 'color' => '#6366f1', 'values' => [38607, 10000]])
+        ->and($series['rent'])->toBe(['key' => 'rent', 'name' => 'Rent', 'color' => '#7f81d5', 'values' => [38607, 10000]])
         ->and($series['groceries']['values'])->toBe([29349, 1000])
         ->and($series['health']['values'])->toBe([15065, 0]);
 });

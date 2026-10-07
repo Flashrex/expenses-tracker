@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Group;
 use App\Models\Rule;
 use App\Services\Groups\GroupCatalog;
 
@@ -10,7 +11,7 @@ test('creates the default groups in order', function () {
         'rent', 'utilities', 'groceries', 'subscriptions', 'hobbies',
         'online_orders', 'takeaway', 'restaurants', 'health', 'other',
     ])
-        ->and($catalog->all()['rent'])->toBe(['name' => 'Rent', 'color' => '#6366f1', 'sort' => 1]);
+        ->and($catalog->all()['rent'])->toBe(['name' => 'Rent', 'color' => '#7f81d5', 'sort' => 1]);
 });
 
 test('converts old rules in place', function () {
@@ -39,4 +40,14 @@ test('converts old rules in place', function () {
     foreach ($collection->find() as $document) {
         expect(isset($document['pattern']) || isset($document['priority']) || isset($document['field']))->toBeFalse();
     }
+});
+
+test('mutes the swatch colours and keeps custom ones', function () {
+    Group::query()->where('key', 'rent')->update(['color' => '#6366f1']);
+    Group::query()->where('key', 'health')->update(['color' => '#123456']);
+
+    (require database_path('migrations/2026_10_07_100000_mute_group_colors.php'))->up();
+
+    expect(Group::query()->where('key', 'rent')->sole()->color)->toBe('#7f81d5')
+        ->and(Group::query()->where('key', 'health')->sole()->color)->toBe('#123456');
 });

@@ -22,7 +22,7 @@
 
     $payload = [
         'state' => $state,
-        'swatches' => ['#6366f1', '#f59e0b', '#10b981', '#8b5cf6', '#ec4899', '#0ea5e9', '#f97316', '#f43f5e', '#14b8a6', '#94a3b8', '#ef4444', '#84cc16', '#06b6d4', '#eab308', '#78716c', '#d946ef'],
+        'swatches' => ['#7f81d5', '#c6923a', '#329776', '#977bd7', '#cb6999', '#3a94bd', '#cc7b43', '#d06376', '#35978c', '#9ba4b1', '#cd6666', '#7ca83a', '#2f99ab', '#bd9c35', '#76716e', '#c068cd'],
         'fields' => $fields,
         'directions' => [['out', 'Outgoing'], ['in', 'Incoming'], ['any', 'Both']],
         'urls' => [

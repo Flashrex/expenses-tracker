@@ -90,7 +90,7 @@ export default ({ state, swatches, fields, directions, urls, csrf }) => ({
     },
 
     defaultColor() {
-        return this.swatches.find((swatch) => !this.cards.some((card) => card.color === swatch)) ?? '#ef4444';
+        return this.swatches.find((swatch) => !this.cards.some((card) => card.color === swatch)) ?? '#cd6666';
     },
 
     savedGroups(except = null) {
