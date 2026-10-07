@@ -28,7 +28,7 @@ class RuleRerunController extends Controller
         if ($proposals === []) {
             session()->forget(self::SESSION_KEY);
 
-            return redirect()->route('groups')->with('status', 'All entries already match your rules.');
+            return redirect()->route('groups')->notify('All entries already match your rules.');
         }
 
         session([self::SESSION_KEY => ['proposals' => $proposals, 'decisions' => []]]);
@@ -134,7 +134,7 @@ class RuleRerunController extends Controller
         $updated = $rerun->apply($pending['proposals'], $pending['decisions']);
         session()->forget(self::SESSION_KEY);
 
-        return redirect()->route('groups')->with('status', $updated === 1 ? 'Updated 1 entry.' : "Updated {$updated} entries.");
+        return redirect()->route('groups')->notify($updated === 1 ? 'Updated 1 entry.' : "Updated {$updated} entries.");
     }
 
     /**

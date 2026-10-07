@@ -1,12 +1,5 @@
 <x-layouts.app title="Upload">
     <div class="mx-auto max-w-2xl space-y-6">
-        @if (session('status'))
-            <div role="status" class="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-300">
-                <x-heroicon-o-check-circle class="size-5 shrink-0" />
-                {{ session('status') }}
-            </div>
-        @endif
-
         <form method="POST" action="{{ route('upload.store') }}" enctype="multipart/form-data" x-data="uploadDropzone(@js(['maxFiles' => $maxFiles, 'maxBytes' => $maxUploadBytes]))" x-ref="form">
             @csrf
 

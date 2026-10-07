@@ -63,7 +63,7 @@ function rerunAddRule(string $group, array $conditions): void
 test('reports when everything matches', function () {
     $this->post(route('groups.rerun.store'))
         ->assertRedirect(route('groups'))
-        ->assertSessionHas('status', 'All entries already match your rules.');
+        ->assertSessionHas('notify', ['type' => 'success', 'message' => 'All entries already match your rules.']);
 
     $this->get(route('groups'))->assertSee('All entries already match your rules.');
 
@@ -116,7 +116,7 @@ test('applies accepted and declined decisions', function () {
 
     $this->post(route('groups.rerun.apply'))
         ->assertRedirect(route('groups'))
-        ->assertSessionHas('status', 'Updated 1 entry.');
+        ->assertSessionHas('notify', ['type' => 'success', 'message' => 'Updated 1 entry.']);
 
     $spotify->refresh();
     $discovery->refresh();
@@ -149,7 +149,7 @@ test('does not propose a declined entry again', function () {
 
     $this->post(route('groups.rerun.store'))
         ->assertRedirect(route('groups'))
-        ->assertSessionHas('status', 'All entries already match your rules.');
+        ->assertSessionHas('notify', ['type' => 'success', 'message' => 'All entries already match your rules.']);
 
     $card = collect($this->get(route('groups'))->viewData('state')['cards'])->firstWhere('key', $streaming);
     $card['rules'][1]['share'] = 2;
@@ -207,7 +207,7 @@ test('does not propose entries whose result comes from another rule', function (
 
     $this->post(route('groups.rerun.store'))
         ->assertRedirect(route('groups'))
-        ->assertSessionHas('status', 'All entries already match your rules.');
+        ->assertSessionHas('notify', ['type' => 'success', 'message' => 'All entries already match your rules.']);
 
     expect($tegut->fresh()->rule_id)->toBe($ruleId);
 });

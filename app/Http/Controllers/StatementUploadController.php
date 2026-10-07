@@ -474,7 +474,7 @@ class StatementUploadController extends Controller
     {
         $redirect = redirect()->route('upload');
 
-        return $status === null ? $redirect : $redirect->with('status', $status);
+        return $status === null ? $redirect : $redirect->notify($status);
     }
 
     private function batch(): ?ImportBatch

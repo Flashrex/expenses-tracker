@@ -131,7 +131,7 @@ test('stores the statement and entries on confirm', function () {
 
     $this->post(route('upload.confirm', '2026-06'))
         ->assertRedirect(route('upload'))
-        ->assertSessionHas('status', 'June 2026 imported · 69 entries')
+        ->assertSessionHas('notify', ['type' => 'success', 'message' => 'June 2026 imported · 69 entries'])
         ->assertSessionMissing('statement_import');
 
     expect(Statement::count())->toBe(1);

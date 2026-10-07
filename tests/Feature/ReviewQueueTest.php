@@ -233,7 +233,7 @@ test('does not need groups for income and ignored entries', function () {
 
     $this->post(route('upload.confirm', '2026-06'))
         ->assertRedirect(route('upload'))
-        ->assertSessionHas('status', 'June 2026 imported · 69 entries');
+        ->assertSessionHas('notify', ['type' => 'success', 'message' => 'June 2026 imported · 69 entries']);
 
     $salary = Transaction::where('amount_cents', 134819)->sole();
     $ignored = Transaction::where('ignored', true)->get();

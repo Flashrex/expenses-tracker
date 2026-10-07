@@ -52,7 +52,7 @@ test('keeps a single upload unchanged', function () {
 
     $this->post(route('upload.confirm', '2026-06'))
         ->assertRedirect(route('upload'))
-        ->assertSessionHas('status', 'June 2026 imported · 69 entries');
+        ->assertSessionHas('notify', ['type' => 'success', 'message' => 'June 2026 imported · 69 entries']);
 });
 
 test('rejects more than 12 files', function () {
@@ -185,7 +185,7 @@ test('discards the remaining months and keeps confirmed ones', function () {
 
     $this->post(route('upload.discard'))
         ->assertRedirect(route('upload'))
-        ->assertSessionHas('status', '1 month imported · 69 entries (2 discarded)')
+        ->assertSessionHas('notify', ['type' => 'success', 'message' => '1 month imported · 69 entries (2 discarded)'])
         ->assertSessionMissing('statement_import');
 
     expect(Statement::pluck('period')->all())->toBe(['2026-04']);
@@ -258,7 +258,7 @@ test('lands on upload with a summary after the last month', function () {
 
     $this->post(route('upload.confirm', '2026-06'))
         ->assertRedirect(route('upload'))
-        ->assertSessionHas('status', '2 months imported · 138 entries (1 skipped)')
+        ->assertSessionHas('notify', ['type' => 'success', 'message' => '2 months imported · 138 entries (1 skipped)'])
         ->assertSessionMissing('statement_import');
 
     $this->get(route('upload'))
@@ -273,7 +273,7 @@ test('reports nothing imported when every month is skipped', function () {
     $this->post(route('upload.skip', '2026-04'))->assertRedirect('/upload/review/2026-05');
     $this->post(route('upload.skip', '2026-05'))
         ->assertRedirect(route('upload'))
-        ->assertSessionHas('status', 'Nothing imported (2 skipped)');
+        ->assertSessionHas('notify', ['type' => 'success', 'message' => 'Nothing imported (2 skipped)']);
 
     expect(Statement::count())->toBe(0);
 });

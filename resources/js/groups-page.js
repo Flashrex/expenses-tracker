@@ -1,17 +1,17 @@
+import { notify } from './notifications';
+
 const uid = () => crypto.randomUUID();
 
 export default ({ state, swatches, fields, directions, urls, csrf }) => ({
-    cards: [], // { uid, key, isOther, name, color, rules: [{ uid, id, direction, share, conditions: [{ uid, field, operator, value }] }], always: [{ id, text }], snapshot, errors, saving, failed }
+    cards: [], // { uid, key, isOther, name, color, rules: [{ uid, id, direction, share, conditions: [{ uid, field, operator, value }] }], always: [{ id, text }], snapshot, errors, saving }
     ignored: null, // same shape with key 'ignored' and no name, colour, share or always rules
     swatches,
     fields, // { [field]: { label, operators: [[value, label], …] } }
     directions, // [[value, label], …]
-    pageError: false,
     dropTarget: null,
     draggingField: null,
     deleting: null,
     moveTo: 'other',
-    deleteFailed: false,
     deleteBusy: false,
 
     init() {
@@ -43,7 +43,6 @@ export default ({ state, swatches, fields, directions, urls, csrf }) => ({
             })),
             errors: {},
             saving: false,
-            failed: false,
         };
         built.snapshot = this.serialize(built);
 
@@ -99,7 +98,7 @@ export default ({ state, swatches, fields, directions, urls, csrf }) => ({
     },
 
     addGroup() {
-        const card = { uid: uid(), key: null, isOther: false, name: '', color: this.defaultColor(), rules: [], always: [], errors: {}, saving: false, failed: false };
+        const card = { uid: uid(), key: null, isOther: false, name: '', color: this.defaultColor(), rules: [], always: [], errors: {}, saving: false };
         card.snapshot = this.serialize(card);
         const other = this.cards.findIndex((existing) => existing.isOther);
         this.cards.splice(other === -1 ? this.cards.length : other, 0, card);
@@ -191,8 +190,11 @@ export default ({ state, swatches, fields, directions, urls, csrf }) => ({
         const { ok } = await this.request('PUT', urls.order, { groups: keys });
         if (!ok) {
             this.cards = before;
-            this.pageError = true;
+            notify({ type: 'error', message: "Couldn't save the group order. Please try again." });
+            return;
         }
+
+        notify('Group order saved');
     },
 
     moveRule(card, ruleUid, position) {
@@ -206,14 +208,15 @@ export default ({ state, swatches, fields, directions, urls, csrf }) => ({
     async save(card) {
         if (card.saving) return;
         card.saving = true;
-        card.failed = false;
-        this.pageError = false;
 
         let method = 'PUT';
         let url = card === this.ignored ? urls.ignored : urls.update.replace('__KEY__', card.key);
         let body = this.payload(card);
 
-        if (card.key === null) {
+        const created = card.key === null;
+        const label = card === this.ignored ? 'Ignored rules' : `"${card.name.trim() || 'Group'}"`;
+
+        if (created) {
             const index = this.cards.indexOf(card);
             method = 'POST';
             url = urls.store;
@@ -225,16 +228,18 @@ export default ({ state, swatches, fields, directions, urls, csrf }) => ({
 
         if (status === 422) {
             card.errors = json?.errors ?? {};
+            notify({ type: 'error', message: `Couldn't save ${label}. Check the highlighted fields.` });
             return;
         }
 
         if (!ok || !json?.card) {
-            card.failed = true;
+            notify({ type: 'error', message: `Couldn't save ${label}. Please try again.` });
             return;
         }
 
         const fresh = this.fromServer(card === this.ignored ? { ...json.card, key: 'ignored' } : json.card, card);
         Object.assign(card, fresh);
+        notify(created ? `Created ${label}` : `Saved ${label}`);
     },
 
     askDelete(card) {
@@ -245,25 +250,24 @@ export default ({ state, swatches, fields, directions, urls, csrf }) => ({
 
         this.deleting = card;
         this.moveTo = 'other';
-        this.deleteFailed = false;
     },
 
     async confirmDelete() {
         if (this.deleting === null || this.deleteBusy) return;
         this.deleteBusy = true;
-        this.deleteFailed = false;
 
         const card = this.deleting;
         const { ok } = await this.request('DELETE', urls.destroy.replace('__KEY__', card.key), { move_to: this.moveTo });
         this.deleteBusy = false;
 
         if (!ok) {
-            this.deleteFailed = true;
+            notify({ type: 'error', message: `Couldn't delete "${card.name}". Please try again.` });
             return;
         }
 
         this.cards = this.cards.filter((existing) => existing !== card);
         this.deleting = null;
+        notify(`Deleted "${card.name}"`);
     },
 
     async deleteAlways(card, rule) {
@@ -271,11 +275,12 @@ export default ({ state, swatches, fields, directions, urls, csrf }) => ({
 
         const { ok } = await this.request('DELETE', urls.rule.replace('__ID__', rule.id));
         if (!ok) {
-            this.pageError = true;
+            notify({ type: 'error', message: "Couldn't delete the \"Always use\" rule. Please try again." });
             return;
         }
 
         card.always = card.always.filter((existing) => existing.id !== rule.id);
+        notify(`Deleted "Always use" rule ${rule.text}`);
     },
 
     async request(method, url, body = undefined) {

@@ -39,13 +39,6 @@
 
 <x-layouts.app title="Groups & rules">
     <div class="mx-auto max-w-3xl space-y-4" x-data="groupsPage(@js($payload))" data-groups-page>
-        @if (session('status'))
-            <div role="status" data-status-notice class="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-300">
-                <x-heroicon-o-check-circle class="size-5 shrink-0" />
-                {{ session('status') }}
-            </div>
-        @endif
-
         <div class="flex flex-wrap items-center justify-between gap-3">
             <h1 class="text-lg font-semibold">Groups &amp; rules</h1>
             <form method="POST" action="{{ route('groups.rerun.store') }}" class="flex items-center gap-3">
@@ -71,8 +64,6 @@
             </div>
         </div>
 
-        <p x-show="pageError" x-cloak role="alert" class="text-sm text-rose-600 dark:text-rose-400">Couldn't save. Please try again.</p>
-
         <div data-group-list class="space-y-4" x-sort="moveCard($item, $position)" x-sort:config="{ handle: '[data-card-handle]', animation: 150 }">
             <template x-for="card in cards" :key="card.uid">
                 <section x-sort:item="card.uid" :data-group-card="card.key ?? 'new'" :data-card-uid="card.uid" class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
@@ -91,7 +82,6 @@
                     </div>
                     <span x-show="isDirty(card)" x-cloak class="{{ $unsaved }} mt-2 sm:hidden">Unsaved changes</span>
                     <p x-show="error(card, 'name')" x-text="error(card, 'name')" x-cloak class="{{ $fieldError }}"></p>
-                    <p x-show="card.failed" x-cloak role="alert" class="{{ $fieldError }}">Couldn't save. Please try again.</p>
 
                     <div role="radiogroup" aria-label="Colour" class="mt-3 flex flex-wrap items-center gap-2">
                         <template x-for="swatch in swatches" :key="swatch">
@@ -127,7 +117,6 @@
                 <button type="button" data-save @click="save(card)" :disabled="card.saving" class="{{ $smallPrimary }}">Save</button>
             </div>
             <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Entries matching these rules don't count anywhere.</p>
-            <p x-show="card.failed" x-cloak role="alert" class="{{ $fieldError }}">Couldn't save. Please try again.</p>
 
             @include('pages.groups.rules', ['withShare' => false])
         </section>
@@ -147,7 +136,6 @@
                                 </template>
                             </select>
                         </label>
-                        <p x-show="deleteFailed" role="alert" class="text-sm text-rose-600 dark:text-rose-400">Couldn't delete. Please try again.</p>
                         <div class="flex justify-end gap-2">
                             <button type="button" @click="deleting = null" class="{{ $secondaryButton }}">Cancel</button>
                             <button type="button" data-confirm-delete @click="confirmDelete()" :disabled="deleteBusy"

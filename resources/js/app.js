@@ -4,13 +4,16 @@ import donutChart from './donut-chart';
 import entriesCard from './entries-card';
 import entryDescription from './entry-description';
 import groupsPage from './groups-page';
+import { notify, store as notifications } from './notifications';
 import rerunPreview from './rerun-preview';
 import reviewQueue from './review-queue';
 import trendChart from './trend-chart';
 import uploadDropzone from './upload-dropzone';
 
 window.Alpine = Alpine;
+window.notify = notify;
 Alpine.plugin(sort);
+Alpine.store('notifications', notifications);
 Alpine.data('reviewQueue', reviewQueue);
 Alpine.data('donutChart', donutChart);
 Alpine.data('trendChart', trendChart);
