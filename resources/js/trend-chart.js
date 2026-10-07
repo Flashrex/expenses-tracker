@@ -1,5 +1,31 @@
-import { currentTheme, watchTheme } from './charts/theme';
+import { currentTheme, themes, watchTheme } from './charts/theme';
 import { euros, wholeEuros } from './charts/format';
+
+/** Saturated red: stands out against the muted group colours and the slate total line. */
+const AVERAGE_COLOR = '#ef4444';
+
+/** Mean of the values, or null when there are none. */
+const mean = (values) => (values.length === 0 ? null : Math.round(values.reduce((sum, v) => sum + v, 0) / values.length));
+
+/** Dashed, semi-transparent horizontal line at the average, behind the bars and the line (z 2); nothing when there is no average. */
+const averageLine = (value) => ({
+    z: 1,
+    silent: true,
+    symbol: 'none',
+    lineStyle: { color: AVERAGE_COLOR, type: 'dashed', width: 1.5, opacity: 0.6 },
+    // On the y axis like its tick labels (same 8px margin); the background hides a tick label it overlaps.
+    label: {
+        position: 'start',
+        distance: 8,
+        color: AVERAGE_COLOR,
+        fontSize: 12,
+        fontWeight: 600,
+        backgroundColor: themes[currentTheme()].tooltip.backgroundColor,
+        padding: [2, 0, 2, 4],
+        formatter: () => `Ø ${wholeEuros(value)}`,
+    },
+    data: value === null ? [] : [{ yAxis: value }],
+});
 
 // Both chart instances and the data live in closure variables, so Alpine's reactive proxies never wrap them.
 export default () => {
@@ -33,6 +59,9 @@ export default () => {
 
             const totalData = (sel) => visibleTotals(sel).map((total) => ({ value: 0, total }));
 
+            /** Mean of the visible bar totals over the imported periods only. */
+            const barAverage = (sel) => mean(visibleTotals(sel).filter((_, i) => data.imported[i]));
+
             /** Lock styling of the group series: others dimmed like hover, hover paused while locked. */
             const groupStates = () => data.series.map((s) => ({
                 id: s.key,
@@ -41,9 +70,16 @@ export default () => {
             }));
 
             /** The locked group's line, or the total of the legend-visible groups; unimported periods break the line. */
+            const lineValues = (sel) => {
+                const group = this.locked ? data.series.find((s) => s.key === this.locked.key) : null;
+                return (group ? group.values : visibleTotals(sel)).map((v, i) => (data.imported[i] ? v : '-'));
+            };
+
+            /** Mean of the line over the imported periods only. */
+            const lineAverage = (sel) => mean(lineValues(sel).filter((v) => v !== '-'));
+
             const lineSeries = (sel) => {
                 const group = this.locked ? data.series.find((s) => s.key === this.locked.key) : null;
-                const values = group ? group.values : visibleTotals(sel);
                 return {
                     id: group ? `line-${group.key}` : 'line-total',
                     name: group ? group.name : 'Total',
@@ -51,22 +87,25 @@ export default () => {
                     connectNulls: false,
                     showSymbol: true,
                     showAllSymbol: true,
-                    data: values.map((v, i) => (data.imported[i] ? v : '-')),
+                    data: lineValues(sel),
+                    markLine: averageLine(lineAverage(sel)),
                     ...(group ? { itemStyle: { color: group.color }, lineStyle: { color: group.color } } : {}),
                 };
             };
 
-            /** Mean of the line over the imported periods only. */
-            const averageOf = (sel) => {
-                const values = lineSeries(sel).data.filter((v) => v !== '-');
-                return values.length === 0 ? '' : `Ø ${euros(Math.round(values.reduce((sum, v) => sum + v, 0) / values.length))} / ${data.per}`;
+            const averageText = (sel) => {
+                const value = lineAverage(sel);
+                return value === null ? '' : `Ø ${euros(value)} / ${data.per}`;
             };
 
             apply = () => {
                 const sel = selected();
-                bars.setOption({ legend: { selected: sel }, series: [...groupStates(), { id: 'total', data: totalData(sel) }] });
+                bars.setOption({
+                    legend: { selected: sel },
+                    series: [...groupStates(), { id: 'total', data: totalData(sel), markLine: averageLine(barAverage(sel)) }],
+                });
                 line.setOption({ series: [lineSeries(sel)] }, { replaceMerge: ['series'] });
-                this.average = averageOf(sel);
+                this.average = averageText(sel);
             };
 
             bars = echarts.init(this.$refs.chart, currentTheme(), { renderer: 'svg' });
@@ -113,6 +152,7 @@ export default () => {
                         tooltip: { show: false },
                         label: { show: true, position: 'top', fontWeight: 600, formatter: (p) => wholeEuros(p.data.total) },
                         data: totalData({}),
+                        markLine: averageLine(barAverage({})),
                     },
                 ],
             });
@@ -134,7 +174,7 @@ export default () => {
                 yAxis: { type: 'value', axisLabel: { formatter: (v) => wholeEuros(v) } },
                 series: [lineSeries({})],
             });
-            this.average = averageOf(selected());
+            this.average = averageText(selected());
 
             bars.on('click', (p) => {
                 if (p.componentType === 'series' && p.seriesId !== 'total') {
