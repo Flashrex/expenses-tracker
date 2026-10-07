@@ -52,6 +52,13 @@ test('lists groups, rules and always rules in order', function () {
     $response->assertSee('data-block="amount"', false)->assertSee('Rerun all rules');
 });
 
+test('field menus call addRule and addCondition with the field', function () {
+    $this->actingAs(User::factory()->create())->get(route('groups'))
+        ->assertOk()
+        ->assertSee('@click="open = false; addRule(card, \'merchant\')"', false)
+        ->assertSee('@click="open = false; addCondition(rule, \'amount\')"', false);
+});
+
 test('discards a pending upload', function () {
     $this->actingAs(User::factory()->create());
     $this->seed(RuleSeeder::class);

@@ -3,7 +3,7 @@
     $fieldMenu = function (string $pick) use ($menuItem, $fields) {
         $buttons = '';
         foreach ($fields as $value => $field) {
-            $buttons .= '<button type="button" role="menuitem" data-menu-field="'.$value.'" @click="open = false; '.$pick.'(\''.$value.'\')" class="'.$menuItem.'">'.e($field['label']).'</button>';
+            $buttons .= '<button type="button" role="menuitem" data-menu-field="'.$value.'" @click="open = false; '.$pick.', \''.$value.'\')" class="'.$menuItem.'">'.e($field['label']).'</button>';
         }
 
         return '<div x-show="open" x-cloak role="menu" data-field-menu class="absolute top-full left-0 z-20 mt-1 w-44 rounded-xl border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-700 dark:bg-slate-900">'.$buttons.'</div>';
@@ -55,7 +55,7 @@
                         <div class="relative" x-data="{ open: false }" @click.outside="open = false" @keydown.escape="open = false">
                             <button type="button" data-add-condition @click="open = ! open" :aria-expanded="open" aria-haspopup="true"
                                 class="rounded-lg px-2 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 focus-visible:outline-2 focus-visible:outline-emerald-600 dark:text-emerald-400 dark:hover:bg-emerald-400/10">+ AND</button>
-                            {!! $fieldMenu('addCondition(rule, ') !!}
+                            {!! $fieldMenu('addCondition(rule') !!}
                         </div>
                         <label class="flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-300">
                             <span class="sr-only">Direction</span>
@@ -94,7 +94,7 @@
         <x-heroicon-m-plus class="size-4" />
         Add rule
     </button>
-    {!! $fieldMenu('addRule(card, ') !!}
+    {!! $fieldMenu('addRule(card') !!}
 </div>
 
 @if ($withShare)
