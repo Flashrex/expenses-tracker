@@ -37,7 +37,7 @@ class TrendsController extends Controller
 
         $series = TrendSeries::build($mode, $imported, $report->totalsByPeriod($first, $last), $groups->all());
 
-        $chart = ['labels' => $series->labels, 'imported' => $series->imported, 'series' => $series->groups];
+        $chart = ['labels' => $series->labels, 'imported' => $series->imported, 'series' => $series->groups, 'per' => $mode->value];
 
         return view('pages.trends', [
             'series' => $series,

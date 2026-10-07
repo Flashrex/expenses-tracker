@@ -204,6 +204,23 @@ test('includes unassigned spending', function () {
     ]);
 });
 
+test('renders a chip per group below the bar chart and a slot for the average', function () {
+    importedMonth('2026-05', [['amount_cents' => -1000, 'group_key' => 'groceries']]);
+    importedMonth('2026-06', [['amount_cents' => -2000, 'group_key' => 'rent'], ['amount_cents' => -500, 'group_key' => 'groceries']]);
+
+    $response = $this->actingAs($this->user)->get(route('trends'))->assertOk();
+    $html = $response->getContent();
+
+    expect(substr_count($html, 'data-group-chip='))->toBe(2)
+        ->and($html)->toContain('data-group-chips')
+        ->and($html)->not->toContain("type: 'scroll'")
+        ->and($html)->toContain('x-on:dblclick="solo(')
+        ->and($html)->toContain('data-average')
+        ->and(trendChart($response)['per'])->toBe('month');
+
+    $response->assertSeeInOrder(['data-group-chip="rent"', 'data-group-chip="groceries"'], false);
+});
+
 test('passes imported flags to the chart', function () {
     importedMonth('2026-03', [['amount_cents' => -1000, 'group_key' => 'groceries']]);
     importedMonth('2026-04', [['amount_cents' => 5000, 'direction' => 'in']]);
@@ -212,7 +229,7 @@ test('passes imported flags to the chart', function () {
     $response = $this->actingAs($this->user)->get(route('trends'))->assertOk();
     $chart = trendChart($response);
 
-    expect(array_keys($chart))->toBe(['labels', 'imported', 'series'])
+    expect(array_keys($chart))->toBe(['labels', 'imported', 'series', 'per'])
         ->and($chart['imported'])->toBe([true, true, false, true])
         ->and(trendSeriesByKey($response)['groceries']['values'])->toBe([1000, 0, 0, 2000]);
 });

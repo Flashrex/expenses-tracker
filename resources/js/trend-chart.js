@@ -13,11 +13,18 @@ export default () => {
         /** null or { key, name, color } of the locked group. */
         locked: null,
 
+        /** Group key => false for the groups hidden with the chips below the bar chart. */
+        hidden: {},
+
+        /** Average per imported month (or year) of the line chart, formatted. */
+        average: '',
+
         async init() {
             const { echarts } = await import('./charts/echarts');
             data = JSON.parse(this.$el.dataset.chart);
 
-            const selected = () => bars.getOption().legend?.[0]?.selected ?? {};
+            /** Legend selection by series name, as the chart and the visible totals expect it. */
+            const selected = () => Object.fromEntries(data.series.map((s) => [s.name, this.hidden[s.key] !== true]));
 
             /** Per-period sums of the groups the legend currently shows. */
             const visibleTotals = (sel) =>
@@ -49,16 +56,24 @@ export default () => {
                 };
             };
 
+            /** Mean of the line over the imported periods only. */
+            const averageOf = (sel) => {
+                const values = lineSeries(sel).data.filter((v) => v !== '-');
+                return values.length === 0 ? '' : `Ø ${euros(Math.round(values.reduce((sum, v) => sum + v, 0) / values.length))} / ${data.per}`;
+            };
+
             apply = () => {
                 const sel = selected();
-                bars.setOption({ series: [...groupStates(), { id: 'total', data: totalData(sel) }] });
+                bars.setOption({ legend: { selected: sel }, series: [...groupStates(), { id: 'total', data: totalData(sel) }] });
                 line.setOption({ series: [lineSeries(sel)] }, { replaceMerge: ['series'] });
+                this.average = averageOf(sel);
             };
 
             bars = echarts.init(this.$refs.chart, currentTheme(), { renderer: 'svg' });
             bars.setOption({
-                grid: { top: 32, left: 8, right: 8, bottom: 48, outerBoundsMode: 'same', outerBoundsContain: 'axisLabel' },
-                legend: { type: 'scroll', bottom: 0, icon: 'circle', itemWidth: 10, itemHeight: 10, data: data.series.map((s) => s.name) },
+                grid: { top: 32, left: 8, right: 8, bottom: 8, outerBoundsMode: 'same', outerBoundsContain: 'axisLabel' },
+                // Hidden: the chips below the chart switch groups on and off through its selection.
+                legend: { show: false, data: data.series.map((s) => s.name) },
                 tooltip: {
                     trigger: 'axis',
                     axisPointer: { type: 'shadow' },
@@ -119,19 +134,12 @@ export default () => {
                 yAxis: { type: 'value', axisLabel: { formatter: (v) => wholeEuros(v) } },
                 series: [lineSeries({})],
             });
+            this.average = averageOf(selected());
 
             bars.on('click', (p) => {
                 if (p.componentType === 'series' && p.seriesId !== 'total') {
                     this.toggle(p.seriesId);
                 }
-            });
-
-            bars.on('legendselectchanged', (e) => {
-                if (this.locked && e.selected[this.locked.name] === false) {
-                    this.clearHover();
-                    this.locked = null;
-                }
-                apply();
             });
 
             const observer = new ResizeObserver(() => {
@@ -155,6 +163,35 @@ export default () => {
             const group = data.series.find((s) => s.key === key);
             this.clearHover();
             this.locked = this.locked?.key === key ? null : { key: group.key, name: group.name, color: group.color };
+            apply();
+        },
+
+        isVisible(key) {
+            return this.hidden[key] !== true;
+        },
+
+        /** Single click on a chip: show or hide the group; hiding the locked group unlocks it. */
+        toggleVisible(key) {
+            this.hidden = { ...this.hidden, [key]: this.isVisible(key) };
+            if (this.locked?.key === key && !this.isVisible(key)) {
+                this.clearHover();
+                this.locked = null;
+            }
+            apply();
+        },
+
+        /** Double click on a chip: show and lock only this group, or show all again when it already is the only one. */
+        solo(key) {
+            const alone = data.series.every((s) => this.isVisible(s.key) === (s.key === key));
+            this.clearHover();
+
+            if (alone) {
+                this.hidden = {};
+            } else {
+                const group = data.series.find((s) => s.key === key);
+                this.hidden = Object.fromEntries(data.series.filter((s) => s.key !== key).map((s) => [s.key, true]));
+                this.locked = { key: group.key, name: group.name, color: group.color };
+            }
             apply();
         },
 

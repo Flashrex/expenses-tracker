@@ -36,13 +36,30 @@
 
                         <div x-ref="chart" role="img" aria-label="Spending by group per {{ $mode->value }}, {{ $series->rangeLabel() }}" class="mt-4 h-80 w-full sm:h-96"></div>
 
+                        <div role="group" aria-label="Groups shown" data-group-chips class="mt-3 flex flex-wrap justify-center gap-1.5">
+                            @foreach ($series->groups as $group)
+                                <button type="button" data-group-chip="{{ $group['key'] }}" style="--group: {{ $group['color'] }}"
+                                        x-on:click="toggleVisible(@js($group['key']))" x-on:dblclick="solo(@js($group['key']))"
+                                        x-bind:aria-pressed="isVisible(@js($group['key']))" aria-pressed="true"
+                                        x-bind:class="isVisible(@js($group['key'])) ? 'text-slate-700 dark:text-slate-300' : 'text-slate-400 line-through dark:text-slate-500'"
+                                        title="Click to show or hide, double-click to show only this group"
+                                        class="inline-flex max-w-full items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium select-none hover:border-slate-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-slate-600 dark:focus-visible:outline-emerald-400">
+                                    <span class="size-2 shrink-0 rounded-full bg-(--group)" x-bind:class="! isVisible(@js($group['key'])) && 'opacity-25'"></span>
+                                    <span class="truncate">{{ $group['name'] }}</span>
+                                </button>
+                            @endforeach
+                        </div>
+
                         @if ($singleMonth)
                             <p data-single-period class="mt-3 text-xs text-slate-500 dark:text-slate-400">Import another month to compare trends.</p>
                         @endif
                     </section>
 
                     <section aria-labelledby="trend-line-heading" class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6 dark:border-slate-800 dark:bg-slate-900">
-                        <h2 id="trend-line-heading" class="text-sm font-semibold" x-text="locked ? `${locked.name} over time` : 'Total spending over time'">Total spending over time</h2>
+                        <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                            <h2 id="trend-line-heading" class="text-sm font-semibold" x-text="locked ? `${locked.name} over time` : 'Total spending over time'">Total spending over time</h2>
+                            <p data-average x-show="average" x-cloak x-text="average" title="Average over the imported {{ Str::plural($mode->value) }}" class="text-sm font-semibold tabular-nums text-slate-700 dark:text-slate-300"></p>
+                        </div>
                         <p data-lock-hint x-show="!locked" class="mt-1 text-xs text-slate-500 dark:text-slate-400">Click a group in the chart above to see it here</p>
 
                         <div x-ref="line" role="img" aria-label="Spending over time per {{ $mode->value }}, {{ $series->rangeLabel() }}" class="mt-4 h-64 w-full sm:h-72"></div>
