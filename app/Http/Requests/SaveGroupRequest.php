@@ -37,12 +37,19 @@ class SaveGroupRequest extends FormRequest
      */
     public function rules(): array
     {
-        return [
+        $rules = [
             'name' => ['required', 'string', 'max:40', $this->uniqueName(...)],
             'color' => ['required', 'string', 'regex:/^#[0-9a-f]{6}$/'],
             'before' => ['nullable', 'string'],
             ...$this->ruleRules(withShare: true),
         ];
+
+        // "Other" takes every outgoing entry no rule matches, so it has no rules of its own.
+        if ($this->route('group')?->key === Group::OTHER) {
+            $rules['rules'] = ['present', 'array', 'max:0'];
+        }
+
+        return $rules;
     }
 
     /**
@@ -54,6 +61,7 @@ class SaveGroupRequest extends FormRequest
             'name.required' => 'Enter a name.',
             'name.max' => 'Use at most 40 characters.',
             'color.*' => 'Pick a colour.',
+            'rules.max' => '"Other" collects everything no rule matches and cannot have rules.',
             ...$this->ruleMessages(),
         ];
     }

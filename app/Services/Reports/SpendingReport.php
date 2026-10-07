@@ -2,6 +2,7 @@
 
 namespace App\Services\Reports;
 
+use App\Models\Group;
 use App\Models\Transaction;
 
 /**
@@ -9,7 +10,7 @@ use App\Models\Transaction;
  *
  * Every counted amount is amount_cents / share_divisor, rounded to whole cents per entry
  * before summing, so group amounts, the donut total and Spent always add up exactly.
- * Ignored entries are excluded from every total.
+ * Ignored entries are excluded from every total; outgoing entries without a group count as "Other".
  */
 final class SpendingReport
 {
@@ -41,7 +42,7 @@ final class SpendingReport
             $periods[$period] ??= ['spent' => 0, 'income' => 0, 'groups' => []];
 
             if ($row['_id']['direction'] === 'out') {
-                $key = $row['_id']['group_key'] ?? GroupComparison::UNASSIGNED;
+                $key = $row['_id']['group_key'] ?? Group::OTHER;
                 $periods[$period]['spent'] -= $cents;
                 $periods[$period]['groups'][$key] = ($periods[$period]['groups'][$key] ?? 0) - $cents;
             } elseif ($row['_id']['direction'] === 'in') {

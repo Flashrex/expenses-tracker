@@ -142,9 +142,9 @@ test('shows the stepper for a batch', function () {
         ->assertSee('Discard remaining')
         ->getContent();
 
-    expect($html)->toMatch('/data-step="2026-04" data-step-state="open">\s*<span aria-current="step"/')
-        ->and($html)->toContain('data-step="2026-05" data-step-state="open"')
-        ->and($html)->toContain('data-step="2026-06" data-step-state="open"')
+    expect($html)->toMatch('/data-step="2026-04" data-step-state="ready">\s*<span aria-current="step"/')
+        ->and($html)->toContain('data-step="2026-05" data-step-state="ready"')
+        ->and($html)->toContain('data-step="2026-06" data-step-state="ready"')
         ->and($html)->toContain('href="'.route('upload.review', '2026-05').'"')
         ->and($html)->toContain('href="'.route('upload.review', '2026-06').'"')
         ->and($html)->not->toContain('href="'.route('upload.review', '2026-04').'"');
@@ -207,7 +207,7 @@ test('applies a new always rule to the remaining months but not to manual picks'
     uploadSpring();
 
     $this->postJson(route('upload.assign', '2026-05'), ['entry' => 65, 'group' => 'health'])->assertOk();
-    $this->postJson(route('upload.assign', '2026-04'), ['entry' => 65, 'group' => 'other'])->assertOk();
+    $this->postJson(route('upload.assign', '2026-04'), ['entry' => 65, 'group' => 'groceries'])->assertOk();
     $this->postJson(route('upload.always', '2026-04'), ['entry' => 65, 'always' => true])->assertOk();
     $this->post(route('upload.confirm', '2026-04'))->assertRedirect('/upload/review/2026-05');
 
@@ -220,7 +220,8 @@ test('applies a new always rule to the remaining months but not to manual picks'
     expect(pendingBatch()->reviewQueue('2026-05')->state()['entries'][65]['group'])->toBe('health')
         ->and(session('statement_import.months.2026-05.assignments.65.rule_id'))->toBeNull()
         ->and(session('statement_import.months.2026-06.assignments.65.rule_id'))->toBe($rule->id)
-        ->and(pendingBatch()->reviewQueue('2026-06')->openCount())->toBe(0);
+        ->and(session('statement_import.months.2026-06.assignments.65.group_key'))->toBe('groceries')
+        ->and(pendingBatch()->reviewQueue('2026-06')->contains(65))->toBeFalse();
 });
 
 test('discards unconfirmed months when leaving the flow', function (string $name) {

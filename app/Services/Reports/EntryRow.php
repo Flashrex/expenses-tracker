@@ -38,6 +38,7 @@ final readonly class EntryRow
         $groupedBy = match (true) {
             $transaction->rule_id !== null && $rule !== null => $rule->description(),
             $transaction->rule_id !== null => 'Rule (since removed)',
+            $transaction->unmatched && $transaction->declined === null => 'No rule matched',
             $transaction->group_key !== null || $transaction->ignored || $transaction->declined !== null => 'Picked manually',
             default => 'Not grouped',
         };
@@ -65,10 +66,5 @@ final readonly class EntryRow
     public function isShared(): bool
     {
         return $this->shareDivisor > 1 && ! $this->ignored;
-    }
-
-    public function isUnassigned(): bool
-    {
-        return $this->amountCents < 0 && ! $this->ignored && $this->groupKey === null;
     }
 }

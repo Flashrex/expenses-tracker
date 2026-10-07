@@ -82,8 +82,6 @@ test('orders by amount then previous amount then config order', function () {
         ->and(array_column($byConfig, 'key'))->toBe(['a', 'b']);
 });
 
-test('lists unassigned spending', function () {
-    [$row] = GroupComparison::rows(spending(['unassigned' => 500]), null, comparisonGroups());
-
-    expect([$row->key, $row->name, $row->color, $row->cents])->toBe(['unassigned', 'Unassigned', '#cbd5e1', 500]);
+test('has no unassigned row', function () {
+    expect(GroupComparison::rows(spending(['unassigned' => 500]), null, comparisonGroups()))->toBe([]);
 });

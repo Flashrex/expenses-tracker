@@ -2,6 +2,7 @@
 
 /**
  * Groups are only the initial set: the migration copies them into the groups collection once; at runtime groups come from the database (GroupCatalog).
+ * "other" takes every outgoing entry no rule matches and has no rules of its own.
  *
  * @return array{groups: array<string, array{name: string, color: string, sort: int}>, rules: list<array{field: string, pattern: string, direction: string, group_key?: string, share_divisor?: int, ignore?: bool}>}
  */
@@ -16,7 +17,8 @@ return [
         'takeaway' => ['name' => 'Takeaway & Fast Food', 'color' => '#cc7b43', 'sort' => 7],
         'restaurants' => ['name' => 'Restaurants & Bars', 'color' => '#d06376', 'sort' => 8],
         'health' => ['name' => 'Health', 'color' => '#35978c', 'sort' => 9],
-        'other' => ['name' => 'Other', 'color' => '#9ba4b1', 'sort' => 10],
+        'fees' => ['name' => 'Fees & Taxes', 'color' => '#bd9c35', 'sort' => 10],
+        'other' => ['name' => 'Other', 'color' => '#9ba4b1', 'sort' => 11],
     ],
 
     'rules' => [
@@ -56,10 +58,7 @@ return [
         ['field' => 'merchant', 'pattern' => 'LS CHUMBOS', 'direction' => 'out', 'group_key' => 'restaurants'],
         ['field' => 'merchant', 'pattern' => 'DAK-Gesundheit', 'direction' => 'out', 'group_key' => 'health'],
         ['field' => 'merchant', 'pattern' => 'Apotheke', 'direction' => 'out', 'group_key' => 'health'],
-        ['field' => 'purpose', 'pattern' => 'Rundfunkbeitrag', 'direction' => 'out', 'group_key' => 'other', 'share_divisor' => 3],
-        ['field' => 'merchant', 'pattern' => 'LOTTO', 'direction' => 'out', 'group_key' => 'other'],
-        ['field' => 'merchant', 'pattern' => 'Bargeldauszahlung', 'direction' => 'out', 'group_key' => 'other'],
-        ['field' => 'type', 'pattern' => 'Abschluss', 'direction' => 'out', 'group_key' => 'other'],
+        ['field' => 'purpose', 'pattern' => 'Rundfunkbeitrag', 'direction' => 'out', 'group_key' => 'fees', 'share_divisor' => 3],
         ['field' => 'purpose', 'pattern' => 'Miete', 'direction' => 'in', 'ignore' => true],
         ['field' => 'purpose', 'pattern' => 'Rundfunkbeitrag', 'direction' => 'in', 'ignore' => true],
     ],

@@ -64,11 +64,11 @@
             </div>
         </div>
 
-        <div data-group-list class="space-y-4" x-sort="moveCard($item, $position)" x-sort:config="{ handle: '[data-card-handle]', animation: 150 }">
+        <div data-group-list class="space-y-4" x-sort="moveCard($item, $position)" x-sort:config="{ handle: '[data-card-handle]', animation: 150, onMove: (event) => ! (event.related.hasAttribute('data-pinned') && event.willInsertAfter) }">
             <template x-for="card in cards" :key="card.uid">
-                <section x-sort:item="card.uid" :data-group-card="card.key ?? 'new'" :data-card-uid="card.uid" class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                <section x-sort:item="card.uid" :data-group-card="card.key ?? 'new'" :data-card-uid="card.uid" :data-pinned="card.isOther" class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
                     <div class="flex items-center gap-2">
-                        <button type="button" data-card-handle aria-label="Move group" title="Move group" class="{{ $handle }}">
+                        <button type="button" data-card-handle x-show="! card.isOther" aria-label="Move group" title="Move group" class="{{ $handle }}">
                             <x-heroicon-m-bars-3 class="size-5" />
                         </button>
                         <span class="size-3 shrink-0 rounded-full" :style="`background-color: ${card.color}`"></span>
@@ -99,7 +99,17 @@
                     </div>
                     <p x-show="error(card, 'color')" x-text="error(card, 'color')" x-cloak class="{{ $fieldError }}"></p>
 
-                    @include('pages.groups.rules', ['withShare' => true])
+                    <template x-if="card.isOther">
+                        <p data-other-note class="mt-4 flex items-center gap-2 rounded-xl border border-dashed border-slate-300 px-3 py-2.5 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                            <x-heroicon-o-inbox-stack class="size-5 shrink-0" />
+                            Collects every outgoing entry that no rule matches. It has no rules of its own and always stays last.
+                        </p>
+                    </template>
+                    <template x-if="! card.isOther">
+                        <div>
+                            @include('pages.groups.rules', ['withShare' => true])
+                        </div>
+                    </template>
                 </section>
             </template>
         </div>

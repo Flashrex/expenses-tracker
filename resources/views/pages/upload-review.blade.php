@@ -1,3 +1,4 @@
+@use('App\Models\Group')
 @use('App\Support\Money')
 @use('App\Support\Period')
 
@@ -43,13 +44,6 @@
             </div>
         @endif
 
-        @if (session('review_error'))
-            <div role="alert" data-review-error class="flex items-center gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-800 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-300">
-                <x-heroicon-o-exclamation-circle class="size-5 shrink-0" />
-                {{ session('review_error') }}
-            </div>
-        @endif
-
         @if ($existing)
             <div role="alert" class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-200">
                 <p class="flex items-center gap-3">
@@ -76,8 +70,7 @@
                             @if ($step['period'] === $period)
                                 <span aria-current="step" class="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 font-semibold dark:bg-slate-800">
                                     {{ $step['label'] }}
-                                    <span x-show="state.open > 0" @style(['display: none' => $step['open'] === 0]) class="rounded-full bg-amber-100 px-1.5 text-xs font-semibold text-amber-800 dark:bg-amber-400/10 dark:text-amber-300" x-text="state.open">{{ $step['open'] }}</span>
-                                    <x-heroicon-m-check-circle x-show="state.open === 0" @style(['display: none' => $step['open'] > 0]) class="size-4 text-emerald-600 dark:text-emerald-400" />
+                                    <x-heroicon-m-check-circle class="size-4 text-emerald-600 dark:text-emerald-400" />
                                 </span>
                             @elseif ($step['state'] === 'confirmed')
                                 <span class="inline-flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
@@ -92,11 +85,7 @@
                             @else
                                 <a href="{{ route('upload.review', $step['period']) }}" class="inline-flex items-center gap-1.5 rounded-sm hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 dark:focus-visible:outline-emerald-400">
                                     {{ $step['label'] }}
-                                    @if ($step['state'] === 'open')
-                                        <span class="rounded-full bg-amber-100 px-1.5 text-xs font-semibold text-amber-800 dark:bg-amber-400/10 dark:text-amber-300">{{ $step['open'] }}</span>
-                                    @else
-                                        <x-heroicon-m-check-circle class="size-4 text-emerald-600 dark:text-emerald-400" />
-                                    @endif
+                                    <x-heroicon-m-check-circle class="size-4 text-emerald-600 dark:text-emerald-400" />
                                 </a>
                             @endif
                         </li>
@@ -109,14 +98,7 @@
             <div class="flex flex-wrap items-center justify-between gap-4">
                 <div>
                     <h1 class="text-lg font-semibold">{{ Period::label($statement->period) }}</h1>
-                    <div class="flex flex-wrap items-center gap-2">
-                        <p class="text-sm text-slate-500 dark:text-slate-400">Statement {{ $statement->number }} · {{ count($statement->entries) }} entries</p>
-
-                        @if (count($queueRows) > 0)
-                            <span data-review-counter x-show="state.open > 0" @style(['display: none' => $open === 0]) class="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800 dark:bg-amber-400/10 dark:text-amber-300"><span x-text="state.open">{{ $open }}</span> to review</span>
-                            <span data-review-done x-show="state.open === 0" @style(['display: none' => $open > 0]) class="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800 dark:bg-emerald-400/10 dark:text-emerald-300"><x-heroicon-m-check class="size-3.5" />All assigned</span>
-                        @endif
-                    </div>
+                    <p class="text-sm text-slate-500 dark:text-slate-400">Statement {{ $statement->number }} · {{ count($statement->entries) }} entries</p>
                 </div>
 
                 <div class="flex flex-wrap gap-2">
@@ -139,15 +121,13 @@
 
                     <form method="POST" action="{{ route('upload.confirm', $period) }}">
                         @csrf
-                        <button type="submit" data-confirm @disabled($open > 0) :disabled="state.open > 0" class="{{ $primaryButton }} disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-emerald-600 dark:disabled:hover:bg-emerald-500">
+                        <button type="submit" data-confirm class="{{ $primaryButton }}">
                             <x-heroicon-o-check class="size-5" />
                             {{ $existing ? 'Replace import' : 'Confirm import' }}
                         </button>
                     </form>
                 </div>
             </div>
-
-            <p x-show="state.open > 0" @style(['display: none' => $open === 0]) class="mt-2 text-xs text-slate-500 sm:text-right dark:text-slate-400">Assign a group to every entry to confirm.</p>
 
             <dl class="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
                 <div>
@@ -174,6 +154,7 @@
                 <h2 id="review-heading" class="flex items-center gap-2 px-4 pt-4 text-sm font-semibold">
                     <x-heroicon-o-queue-list class="size-5 text-amber-600 dark:text-amber-400" /> To review
                 </h2>
+                <p class="px-4 pt-1 text-xs text-slate-500 dark:text-slate-400">No rule matched these entries. They go to Other unless you pick another group.</p>
                 <p x-show="error" x-cloak role="alert" class="px-4 pt-2 text-sm text-rose-600 dark:text-rose-400">Couldn't save your choice. Please try again.</p>
 
                 <ul class="divide-y divide-slate-100 dark:divide-slate-800">
@@ -210,22 +191,22 @@
                                     @endforeach
                                 </div>
 
-                                <label class="inline-flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400" :class="state.entries[{{ $i }}].group === null && 'opacity-50'">
+                                <label class="inline-flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400" :class="state.entries[{{ $i }}].group === 'other' && 'opacity-50'">
                                     <input type="checkbox" data-always
                                         class="size-4 rounded border-slate-300 text-emerald-600 focus-visible:outline-emerald-600 dark:border-slate-600 dark:bg-slate-800"
                                         :checked="state.entries[{{ $i }}].always"
-                                        :disabled="busy || state.entries[{{ $i }}].group === null"
+                                        :disabled="busy || state.entries[{{ $i }}].group === 'other'"
                                         @change="toggleAlways({{ $i }}, $event)"
                                         @checked($queueState['entries'][$i]['always'])
-                                        @disabled($queueState['entries'][$i]['group'] === null)>
+                                        @disabled($queueState['entries'][$i]['group'] === Group::OTHER)>
                                     <span>Always use this group for <span class="font-medium text-slate-900 dark:text-slate-100">{{ $entry->merchant }}</span></span>
                                 </label>
                             </div>
 
                             <x-entry-details id="review-entry-{{ $i }}" class="pt-3" :type="$entry->type" :counterparty="$entry->counterparty" :booked-on="$date($entry->bookedOn)" :value-on="$date($entry->valueOn)" :purpose="$entry->purpose">
                                 <x-slot:amount>{{ Money::format($entry->amountCents, true) }}</x-slot:amount>
-                                <x-slot:group><span x-show="state.entries[{{ $i }}].group !== null" @style(['display: none' => $queued['group'] === null])>@include('pages.upload-review.bound-chip', ['groupExpression' => "state.entries[{$i}].group", 'current' => $queued['group']])</span><span x-show="state.entries[{{ $i }}].group === null" @style(['display: none' => $queued['group'] !== null])>Unassigned</span></x-slot:group>
-                                <x-slot:grouped-by><span x-text="queuedBy({{ $i }}, @js($entry->merchant))">{{ match (true) { $queued['group'] === null => 'Not grouped', $queued['always'] => 'Always use for '.$entry->merchant, default => 'Picked manually' } }}</span></x-slot:grouped-by>
+                                <x-slot:group>@include('pages.upload-review.bound-chip', ['groupExpression' => "state.entries[{$i}].group", 'current' => $queued['group']])</x-slot:group>
+                                <x-slot:grouped-by><span x-text="queuedBy({{ $i }}, @js($entry->merchant))">{{ match (true) { ! $queued['chosen'] => 'No rule matched', $queued['always'] => 'Always use for '.$entry->merchant, default => 'Picked manually' } }}</span></x-slot:grouped-by>
                             </x-entry-details>
                         </li>
                     @endforeach

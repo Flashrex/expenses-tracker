@@ -60,7 +60,7 @@ test('picks the next pending month after the current one and wraps', function ()
         ->and($batch->nextPending())->toBeNull();
 });
 
-test('reports steps with their state and open count', function () {
+test('reports steps with their state', function () {
     $batch = ImportBatch::start([
         parsedMonth('2026-04', open: 2),
         parsedMonth('2026-05'),
@@ -71,10 +71,10 @@ test('reports steps with their state and open count', function () {
     $batch->markSkipped('2026-07');
 
     expect($batch->steps())->toBe([
-        ['period' => '2026-04', 'label' => 'Apr 2026', 'state' => 'open', 'open' => 2],
-        ['period' => '2026-05', 'label' => 'May 2026', 'state' => 'ready', 'open' => 0],
-        ['period' => '2026-06', 'label' => 'Jun 2026', 'state' => 'confirmed', 'open' => 0],
-        ['period' => '2026-07', 'label' => 'Jul 2026', 'state' => 'skipped', 'open' => 0],
+        ['period' => '2026-04', 'label' => 'Apr 2026', 'state' => 'ready'],
+        ['period' => '2026-05', 'label' => 'May 2026', 'state' => 'ready'],
+        ['period' => '2026-06', 'label' => 'Jun 2026', 'state' => 'confirmed'],
+        ['period' => '2026-07', 'label' => 'Jul 2026', 'state' => 'skipped'],
     ]);
 });
 

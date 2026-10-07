@@ -12,7 +12,7 @@ test('parses valid filters', function () {
         ->and($filters->status)->toBe(EntryStatus::Spending)
         ->and($filters->search)->toBe('tegut')
         ->and($filters->page)->toBe(2)
-        ->and(EntryFilters::fromQuery(['group' => 'unassigned'], ENTRY_GROUP_KEYS)->group)->toBe('unassigned');
+        ->and(EntryFilters::fromQuery(['group' => 'unassigned'], ENTRY_GROUP_KEYS))->toBeNull();
 });
 
 test('defaults missing values', function () {

@@ -85,12 +85,12 @@ test('returns totals per period', function () {
         ->and($periods['2026-07']->spentCents)->toBe(11000);
 });
 
-test('counts outgoing entries without group as unassigned', function () {
+test('counts outgoing entries without group as other', function () {
     importedMonth('2026-06', [['amount_cents' => -700, 'group_key' => null]]);
 
     $totals = app(SpendingReport::class)->totals('2026-06', '2026-06');
 
-    expect([$totals->groupCents, $totals->spentCents])->toBe([['unassigned' => 700], 700]);
+    expect([$totals->groupCents, $totals->spentCents])->toBe([['other' => 700], 700]);
 });
 
 test('returns empty totals when nothing matches', function () {

@@ -35,7 +35,7 @@ final readonly class EntryFilters
 
         $group = $query['group'] ?? null;
 
-        if ($group !== null && $group !== GroupComparison::UNASSIGNED && ! in_array($group, $groupKeys, true)) {
+        if ($group !== null && ! in_array($group, $groupKeys, true)) {
             return null;
         }
 

@@ -28,25 +28,25 @@ test('groups the June fixture', function () {
     $matches = fixtureMatches();
 
     $states = array_map(fn (RuleMatch $match, $entry) => $match->state($entry->direction()), $matches, $entries);
-    expect(array_count_values($states))->toEqualCanonicalizing(['group' => 64, 'ignored' => 3, 'income' => 1, 'unassigned' => 1]);
+    expect(array_count_values($states))->toEqualCanonicalizing(['group' => 61, 'ignored' => 3, 'income' => 1, 'unassigned' => 4]);
 
     $groups = array_count_values(array_filter(array_map(fn (RuleMatch $match) => $match->groupKey, $matches)));
     expect($groups)->toEqualCanonicalizing([
         'rent' => 1, 'utilities' => 2, 'groceries' => 27, 'subscriptions' => 6, 'hobbies' => 10,
-        'online_orders' => 7, 'takeaway' => 3, 'restaurants' => 4, 'health' => 1, 'other' => 3,
+        'online_orders' => 7, 'takeaway' => 3, 'restaurants' => 4, 'health' => 1,
     ]);
 
     $shared = array_keys(array_filter($matches, fn (RuleMatch $match) => $match->shareDivisor === 3));
     expect($shared)->toBe([1, 2, 3]);
 });
 
-test('leaves only the unknown transfer unassigned', function () {
+test('leaves the entries no rule matches unassigned', function () {
     $entries = fixtureStatement()->entries;
     $matches = fixtureMatches();
 
     $unassigned = array_keys(array_filter($matches, fn (RuleMatch $match, int $i) => $match->state($entries[$i]->direction()) === 'unassigned', ARRAY_FILTER_USE_BOTH));
 
-    expect($unassigned)->toBe([65])
+    expect($unassigned)->toBe([8, 19, 65, 68])
         ->and($entries[65]->type)->toBe('Echtzeitüberweisung')
         ->and($entries[65]->amountCents)->toBe(-20000)
         ->and($matches[65])->toEqual(RuleMatch::none());
@@ -81,7 +81,6 @@ test('matches seeded rules on fixture entries', function (int $index, string $me
     [2, 'RhoenEnergie Fulda', 'utilities', 3],
     [4, 'TEGUT', 'groceries'],
     [5, 'AMAZON', 'online_orders'],
-    [8, 'LOTTO He ssen', 'other'],
     [9, 'Spotify', 'subscriptions'],
     [10, 'rebuy recommerc e', 'online_orders'],
     [11, 'ROSSMANN', 'groceries'],
@@ -90,7 +89,6 @@ test('matches seeded rules on fixture entries', function (int $index, string $me
     [14, 'STEAM GAMES', 'hobbies'],
     [15, 'TEO FULDA', 'groceries'],
     [17, 'EDEKA HELLWIG', 'groceries'],
-    [19, 'Bargeldauszahlung VISA Card SPARKASSE FULDA', 'other'],
     [21, 'UNI DONER', 'takeaway'],
     [23, 'REWE KAI UWE GRASMUECK', 'groceries'],
     [25, 'BAECKEREI HAPP', 'groceries'],
@@ -108,7 +106,6 @@ test('matches seeded rules on fixture entries', function (int $index, string $me
     [61, 'LS CHUMBOS FULDA', 'restaurants'],
     [63, 'Miete', 'ignored'],
     [64, 'Miete 313,34 und Nebenkosten 63,33, Strom: 65,67, Gas', 'ignored'],
-    [68, 'Abschluss', 'other'],
 ]);
 
 test('records the matching rule', function () {
@@ -136,7 +133,7 @@ test('matches seeded rules without a fixture entry', function (Closure $entry, s
     'selecta' => [fn () => entry(-150, 'VISA SELECTA DEUTSCHLAND'), 'takeaway'],
     'kiosk' => [fn () => entry(-320, 'VISA KIOSK AM BAHNHOF'), 'takeaway'],
     'apotheke' => [fn () => entry(-1295, 'VISA ROSEN-APOTHEKE'), 'health'],
-    'rundfunkbeitrag' => [fn () => entry(-5508, 'Rundfunk ARD, ZDF, DRadio', "Rundfunkbeitrag 07.2026 - 09.2026\nBeitragsnr. 123456789"), 'other', 3],
+    'rundfunkbeitrag' => [fn () => entry(-5508, 'Rundfunk ARD, ZDF, DRadio', "Rundfunkbeitrag 07.2026 - 09.2026\nBeitragsnr. 123456789"), 'fees', 3],
     'umlaut' => [fn () => entry(-999, 'VISA MÜLLER 1234'), 'groceries'],
 ]);
 

@@ -19,9 +19,7 @@ final class EntryList
             ->where('period', '>=', $period->from())
             ->where('period', '<=', $period->to());
 
-        if ($filters->group === GroupComparison::UNASSIGNED) {
-            $query->where('direction', 'out')->where('ignored', '!=', true)->whereNull('group_key');
-        } elseif ($filters->group !== null) {
+        if ($filters->group !== null) {
             $query->where('group_key', $filters->group);
         }
 

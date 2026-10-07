@@ -97,17 +97,6 @@ test('filters by group', function () {
         ->and(array_unique(array_map(fn (EntryRow $row) => $row->groupKey, $page->rows)))->toBe(['groceries']);
 });
 
-test('filters unassigned spending', function () {
-    importedMonth('2026-06', [
-        ['merchant' => 'Open', 'amount_cents' => -700],
-        ['merchant' => 'Salary', 'amount_cents' => 5000, 'direction' => 'in'],
-        ['merchant' => 'Ignored', 'amount_cents' => -300, 'ignored' => true],
-        ['merchant' => 'Grouped', 'amount_cents' => -100, 'group_key' => 'groceries'],
-    ]);
-
-    expect(merchantsOf(juneEntries(new EntryFilters(group: 'unassigned'))))->toBe(['Open']);
-});
-
 test('filters by status', function (EntryStatus $status, int $total) {
     importFixtureStatement();
 

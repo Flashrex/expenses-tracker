@@ -134,6 +134,7 @@ class GroupController extends Controller
                 'group_key' => $request->string('move_to')->toString(),
                 'rule_id' => null,
                 'declined' => null,
+                'unmatched' => false,
             ]);
 
             Rule::query()->where('group_key', $group->key)->delete();

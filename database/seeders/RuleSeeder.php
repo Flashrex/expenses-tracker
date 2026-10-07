@@ -6,6 +6,7 @@ use App\Enums\RuleDirection;
 use App\Enums\RuleField;
 use App\Enums\RuleOperator;
 use App\Enums\RuleSource;
+use App\Models\Group;
 use App\Models\Rule;
 use App\Services\Groups\GroupCatalog;
 use App\Services\Rules\TextNormalizer;
@@ -85,6 +86,9 @@ class RuleSeeder extends Seeder
             }
             if ($groupKey !== null && ! in_array($groupKey, $groups, true)) {
                 $fail("unknown group \"{$groupKey}\"");
+            }
+            if ($groupKey === Group::OTHER) {
+                $fail('"other" takes the entries no rule matches and cannot have rules');
             }
 
             $divisor = $row['share_divisor'] ?? 1;

@@ -257,7 +257,7 @@ test('groups entries on the review page', function () {
 
     $html = $response->getContent();
 
-    expect(substr_count($html, 'data-assignment="group"'))->toBe(64)
+    expect(substr_count($html, 'data-assignment="group"'))->toBe(61)
         ->and(substr_count($html, 'data-assignment="ignored"'))->toBe(3)
         ->and(substr_count($html, 'data-assignment="unassigned"'))->toBe(0)
         ->and(substr_count($html, 'data-assignment="income"'))->toBe(1)
@@ -265,7 +265,7 @@ test('groups entries on the review page', function () {
         ->and(substr_count($html, 'data-share'))->toBe(3)
         ->and(substr_count($html, ' / 3)'))->toBe(3)
         ->and(substr_count($html, 'No group'))->toBe(0)
-        ->and(substr_count($html, 'data-review-entry='))->toBe(1)
+        ->and(substr_count($html, 'data-review-entry='))->toBe(4)
         ->and(substr_count($html, 'data-row-toggle'))->toBe(69);
 });
 
@@ -341,7 +341,7 @@ test('imports without rules', function () {
 
     expect(substr_count($html, 'data-review-entry='))->toBe(65)
         ->and(substr_count($html, 'data-assignment="income"'))->toBe(4)
-        ->and(strip_tags($html))->toContain('65 to review');
+        ->and(strip_tags($html))->toContain('They go to Other unless you pick another group.');
 
     assignOpenEntries();
 

@@ -227,8 +227,8 @@ final class ImportBatch
     }
 
     /**
-     * Match the still-open queue entries of every pending month again, e.g. after new manual rules were saved.
-     * Entries that already have a group (hand pick or "always" choice) are left alone.
+     * Match the unchosen queue entries of every pending month again, e.g. after new manual rules were saved.
+     * Entries with a hand pick or an "always" choice are left alone.
      */
     public function applyRules(RuleMatcher $matcher): void
     {
@@ -242,7 +242,7 @@ final class ImportBatch
             $assignments = array_map(fn (RuleMatch $match) => $match->toArray(), $this->assignments($period));
 
             foreach ($queue->queue() as $i) {
-                if ($queue->groupFor($i) !== null) {
+                if ($queue->isChosen($i)) {
                     continue;
                 }
 
@@ -258,19 +258,17 @@ final class ImportBatch
     }
 
     /**
-     * @return list<array{period: string, label: string, state: 'open'|'ready'|'confirmed'|'skipped', open: int}>
+     * @return list<array{period: string, label: string, state: 'ready'|'confirmed'|'skipped'}>
      */
     public function steps(): array
     {
         return array_map(function (string $period) {
             $status = $this->months[$period]['status'];
-            $open = $status === 'pending' ? $this->reviewQueue($period)->openCount() : 0;
 
             return [
                 'period' => $period,
                 'label' => Period::short($period),
-                'state' => $status === 'pending' ? ($open > 0 ? 'open' : 'ready') : $status,
-                'open' => $open,
+                'state' => $status === 'pending' ? 'ready' : $status,
             ];
         }, $this->periods());
     }

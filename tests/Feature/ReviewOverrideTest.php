@@ -114,7 +114,7 @@ test('renders a clickable chip only for rule entries', function () {
     preg_match_all('/data-pick-override="([a-z_]+)"/', $row, $picks);
     preg_match_all('/data-pick-override="([a-z_]+)"[^>]*aria-checked="true"/', $row, $checked);
 
-    expect(substr_count($html, 'data-group-chip'))->toBe(64)
+    expect(substr_count($html, 'data-group-chip'))->toBe(61)
         ->and(reviewRow($html, 60))->not->toContain('data-group-chip')
         ->and(reviewRow($html, 63))->not->toContain('data-group-chip')
         ->and(reviewRow($html, 65, 'data-review-entry'))->not->toContain('data-group-chip')
@@ -140,8 +140,8 @@ test('shows entry details for every entry', function () {
         ->and($ignored)->toMatch('/data-grouped-by[^>]*>Rule · purpose contains "Miete"</')
         ->toContain('· ignored')
         ->and(reviewRow($html, 60))->toMatch('/data-grouped-by[^>]*>Not grouped</')
-        ->and($queued)->toContain('>Unassigned<')
-        ->toMatch('/data-grouped-by[^>]*><span[^>]*>Not grouped<\/span>/');
+        ->and($queued)->toContain('>Other<')
+        ->toMatch('/data-grouped-by[^>]*><span[^>]*>No rule matched<\/span>/');
 });
 
 test('names manual rules like the overview', function () {

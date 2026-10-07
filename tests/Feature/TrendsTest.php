@@ -194,13 +194,13 @@ test('shows no chart without spending', function () {
         ->assertSee('data-single-period', false);
 });
 
-test('includes unassigned spending', function () {
+test('counts spending without a group as other', function () {
     importedMonth('2026-06', [['amount_cents' => -700, 'group_key' => null]]);
 
     $chart = trendChart($this->actingAs($this->user)->get(route('trends')));
 
     expect($chart['series'])->toBe([
-        ['key' => 'unassigned', 'name' => 'Unassigned', 'color' => '#cbd5e1', 'values' => [700]],
+        ['key' => 'other', 'name' => 'Other', 'color' => '#9ba4b1', 'values' => [700]],
     ]);
 });
 

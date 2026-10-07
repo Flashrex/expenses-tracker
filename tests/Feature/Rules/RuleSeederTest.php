@@ -13,7 +13,7 @@ function seededRule(string $pattern, string $direction = 'out'): ?Rule
 test('seeds every configured rule once', function () {
     $this->seed(RuleSeeder::class);
 
-    expect(Rule::count())->toBe(42)->toBe(count(config('expenses.rules')))
+    expect(Rule::count())->toBe(39)->toBe(count(config('expenses.rules')))
         ->and(Rule::all()->every(fn (Rule $rule) => $rule->source === RuleSource::System))->toBeTrue();
 
     $rent = seededRule('Miete');
@@ -27,7 +27,10 @@ test('seeds every configured rule once', function () {
     expect($reimbursement->ignore)->toBeTrue()
         ->and($reimbursement->group_key)->toBeNull();
 
-    expect(seededRule('Abschluss')->conditions[0]['field'])->toBe('type');
+    $fee = seededRule('Rundfunkbeitrag');
+    expect($fee->group_key)->toBe('fees')
+        ->and($fee->share_divisor)->toBe(3)
+        ->and(Rule::query()->where('group_key', 'other')->exists())->toBeFalse();
 
     $groceries = Rule::query()->where('group_key', 'groceries')->orderBy('position')->get();
     expect($groceries->pluck('position')->all())->toBe(range(1, 8))
@@ -55,7 +58,7 @@ test('is idempotent', function () {
 
     $this->seed(RuleSeeder::class);
 
-    expect(Rule::count())->toBe(42)
+    expect(Rule::count())->toBe(39)
         ->and(Rule::query()->pluck('id')->sort()->values()->all())->toBe($ids);
 });
 
@@ -68,7 +71,7 @@ test('never resets edited rules', function () {
 
     expect(seededRule('Miete')->share_divisor)->toBe(2)
         ->and(seededRule('REWE'))->toBeNull()
-        ->and(Rule::count())->toBe(41);
+        ->and(Rule::count())->toBe(38);
 });
 
 test('keeps manual rules', function () {
@@ -77,7 +80,7 @@ test('keeps manual rules', function () {
     $this->seed(RuleSeeder::class);
 
     expect(Rule::find($manual->id))->not->toBeNull()
-        ->and(Rule::count())->toBe(43);
+        ->and(Rule::count())->toBe(40);
 });
 
 test('rejects invalid rule config', function (array $row) {
@@ -87,6 +90,7 @@ test('rejects invalid rule config', function (array $row) {
         ->and(Rule::count())->toBe(0);
 })->with([
     'unknown group' => [['field' => 'merchant', 'pattern' => 'ZOO', 'direction' => 'out', 'group_key' => 'pets']],
+    'rule for other' => [['field' => 'merchant', 'pattern' => 'ZOO', 'direction' => 'out', 'group_key' => 'other']],
     'neither group nor ignore' => [['field' => 'merchant', 'pattern' => 'ZOO', 'direction' => 'out']],
     'group and ignore' => [['field' => 'merchant', 'pattern' => 'ZOO', 'direction' => 'out', 'group_key' => 'other', 'ignore' => true]],
     'share divisor 0' => [['field' => 'merchant', 'pattern' => 'ZOO', 'direction' => 'out', 'group_key' => 'other', 'share_divisor' => 0]],

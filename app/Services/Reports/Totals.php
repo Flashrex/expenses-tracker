@@ -5,7 +5,7 @@ namespace App\Services\Reports;
 final readonly class Totals
 {
     /**
-     * @param  array<string, int>  $groupCents  group key (or 'unassigned') => counted spending, positive cents, only non-zero
+     * @param  array<string, int>  $groupCents  group key => counted spending, positive cents, only non-zero
      */
     public function __construct(public int $spentCents, public int $incomeCents, public array $groupCents) {}
 

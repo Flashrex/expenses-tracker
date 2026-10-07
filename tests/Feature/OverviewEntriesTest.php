@@ -2,6 +2,7 @@
 
 use App\Models\Transaction;
 use App\Models\User;
+use Database\Seeders\RuleSeeder;
 use Illuminate\Testing\TestResponse;
 
 beforeEach(function () {
@@ -143,6 +144,20 @@ test('shows picked manually entries', function () {
 
     expect($ids)->toHaveCount(1)
         ->and(entryRow($response, $ids[0]))->toContain('Picked manually')->toContain('−200,00 €');
+});
+
+test('shows entries no rule matched in other', function () {
+    $this->actingAs($this->user);
+    $this->seed(RuleSeeder::class);
+    $this->post(route('upload.store'), ['statements' => [statementUpload()]]);
+    $this->post(route('upload.confirm', '2026-06'))->assertRedirect(route('upload'));
+
+    $response = $this->get(june(['q' => 'echtzeit']));
+    $ids = entryIds($response);
+
+    expect($ids)->toHaveCount(1)
+        ->and(entryRow($response, $ids[0]))->toContain('No rule matched')->toContain('>Other<')
+        ->and(Transaction::where('merchant', 'Echtzeitüberweisung')->sole()->unmatched)->toBeTrue();
 });
 
 test('filters by group chip and marks it active', function () {

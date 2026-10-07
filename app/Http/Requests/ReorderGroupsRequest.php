@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Group;
+use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -23,8 +25,18 @@ class ReorderGroupsRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'groups' => ['required', 'array'],
+            'groups' => ['required', 'array', $this->otherLast(...)],
             'groups.*' => ['string', 'distinct'],
         ];
+    }
+
+    /**
+     * "Other" always stays at the end.
+     */
+    private function otherLast(string $attribute, mixed $value, Closure $fail): void
+    {
+        if (is_array($value) && end($value) !== Group::OTHER) {
+            $fail('"Other" must stay last.');
+        }
     }
 }

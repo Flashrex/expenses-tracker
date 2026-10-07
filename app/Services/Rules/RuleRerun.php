@@ -61,11 +61,12 @@ final class RuleRerun
                 }
 
                 if (($decisions[$id] ?? null) === 'accept') {
-                    $transaction->update([...$proposal, 'declined' => null]);
+                    $transaction->update([...$proposal, 'declined' => null, 'unmatched' => false]);
                     $accepted++;
                 } elseif (($decisions[$id] ?? null) === 'decline') {
                     $transaction->update([
                         'rule_id' => null,
+                        'unmatched' => false,
                         'declined' => ['group_key' => $proposal['group_key'], 'share_divisor' => $proposal['share_divisor'], 'ignored' => $proposal['ignored']],
                     ]);
                 }

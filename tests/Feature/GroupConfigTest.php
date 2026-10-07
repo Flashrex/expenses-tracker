@@ -1,13 +1,13 @@
 <?php
 
-test('defines the ten groups in order', function () {
+test('defines the eleven groups in order', function () {
     $groups = config('expenses.groups');
 
     expect(array_keys($groups))->toBe([
         'rent', 'utilities', 'groceries', 'subscriptions', 'hobbies',
-        'online_orders', 'takeaway', 'restaurants', 'health', 'other',
+        'online_orders', 'takeaway', 'restaurants', 'health', 'fees', 'other',
     ])
-        ->and(array_column($groups, 'sort'))->toBe(range(1, 10))
+        ->and(array_column($groups, 'sort'))->toBe(range(1, 11))
         ->and(array_column($groups, 'name'))->toBe([
             'Rent',
             'Electricity & Gas',
@@ -18,6 +18,7 @@ test('defines the ten groups in order', function () {
             'Takeaway & Fast Food',
             'Restaurants & Bars',
             'Health',
+            'Fees & Taxes',
             'Other',
         ]);
 

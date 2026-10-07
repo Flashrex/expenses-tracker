@@ -183,6 +183,13 @@ export default ({ state, swatches, fields, directions, urls, csrf }) => ({
         const [card] = this.cards.splice(from, 1);
         this.cards.splice(position, 0, card);
 
+        // "Other" always stays last.
+        const other = this.cards.findIndex((existing) => existing.isOther);
+        if (other !== -1 && other !== this.cards.length - 1) {
+            this.cards = before;
+            return;
+        }
+
         const savedKeys = (cards) => cards.filter((existing) => existing.key !== null).map((existing) => existing.key);
         const keys = savedKeys(this.cards);
         if (JSON.stringify(keys) === JSON.stringify(savedKeys(before))) return;

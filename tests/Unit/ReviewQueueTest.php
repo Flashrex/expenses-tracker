@@ -45,20 +45,22 @@ test('queues only unmatched outgoing entries', function () {
         ->and($this->queue->contains(7))->toBeFalse();
 });
 
-test('counts open entries', function () {
-    expect($this->queue->openCount())->toBe(5);
+test('puts entries without a choice into other', function () {
+    expect(array_map($this->queue->groupFor(...), $this->queue->queue()))->toBe(['other', 'other', 'other', 'other', 'other'])
+        ->and(array_map($this->queue->isChosen(...), $this->queue->queue()))->toBe([false, false, false, false, false]);
 
     $this->queue->pick(4, 'other');
 
-    expect($this->queue->openCount())->toBe(4);
+    expect($this->queue->isChosen(4))->toBeTrue()
+        ->and($this->queue->isChosen(3))->toBeFalse();
 });
 
 test('assigns one entry', function () {
     $this->queue->pick(0, 'groceries');
 
     expect($this->queue->groupFor(0))->toBe('groceries')
-        ->and($this->queue->groupFor(1))->toBeNull()
-        ->and($this->queue->groupFor(2))->toBeNull()
+        ->and($this->queue->groupFor(1))->toBe('other')
+        ->and($this->queue->groupFor(2))->toBe('other')
         ->and($this->queue->picks())->toBe([0 => 'groceries']);
 });
 
@@ -74,30 +76,47 @@ test('refuses entries outside the queue', function () {
         ->and(fn () => $this->queue->setAlways(5, true))->toThrow(InvalidArgumentException::class);
 });
 
-test('refuses always without a group', function () {
+test('refuses always for other', function () {
+    expect(fn () => $this->queue->setAlways(0, true))->toThrow(LogicException::class);
+
+    $this->queue->pick(0, 'other');
+
     expect(fn () => $this->queue->setAlways(0, true))->toThrow(LogicException::class);
 });
 
-test('applies always to the other unassigned entries of the merchant', function () {
+test('applies always to the other unchosen entries of the merchant', function () {
     tegutAlwaysGroceries($this->queue);
 
     expect($this->queue->groupFor(2))->toBe('groceries')
         ->and($this->queue->groupFor(1))->toBe('health')
-        ->and($this->queue->groupFor(3))->toBeNull()
+        ->and($this->queue->groupFor(3))->toBe('other')
         ->and($this->queue->isAlways(0))->toBeTrue()
         ->and($this->queue->isAlways(2))->toBeTrue()
         ->and($this->queue->isAlways(1))->toBeFalse()
-        ->and($this->queue->always())->toBe(['TEGUT' => ['merchant' => 'TEGUT', 'group_key' => 'groceries']])
-        ->and($this->queue->openCount())->toBe(2);
+        ->and($this->queue->isChosen(2))->toBeTrue()
+        ->and($this->queue->isChosen(3))->toBeFalse()
+        ->and($this->queue->always())->toBe(['TEGUT' => ['merchant' => 'TEGUT', 'group_key' => 'groceries']]);
 });
 
 test('follows a new pick while always is on', function () {
     tegutAlwaysGroceries($this->queue);
 
+    $this->queue->pick(0, 'rent');
+
+    expect($this->queue->groupFor(2))->toBe('rent')
+        ->and($this->queue->always()['TEGUT']['group_key'])->toBe('rent')
+        ->and($this->queue->groupFor(1))->toBe('health');
+});
+
+test('ends always when its entry moves to other', function () {
+    tegutAlwaysGroceries($this->queue);
+
     $this->queue->pick(0, 'other');
 
-    expect($this->queue->groupFor(2))->toBe('other')
-        ->and($this->queue->always()['TEGUT']['group_key'])->toBe('other')
+    expect($this->queue->always())->toBe([])
+        ->and($this->queue->groupFor(0))->toBe('other')
+        ->and($this->queue->groupFor(2))->toBe('other')
+        ->and($this->queue->isChosen(2))->toBeFalse()
         ->and($this->queue->groupFor(1))->toBe('health');
 });
 
@@ -122,13 +141,13 @@ test('moves always to another group when ticked on a differing entry', function 
         ->and($this->queue->isAlways(0))->toBeFalse();
 });
 
-test('returns followers to unassigned when always is unticked', function () {
+test('returns followers to other when always is unticked', function () {
     $this->queue->pick(0, 'groceries');
     $this->queue->setAlways(0, true);
     $this->queue->setAlways(0, false);
 
     expect($this->queue->groupFor(0))->toBe('groceries')
-        ->and($this->queue->groupFor(2))->toBeNull()
+        ->and($this->queue->groupFor(2))->toBe('other')
         ->and($this->queue->always())->toBe([]);
 });
 
@@ -157,20 +176,18 @@ test('exports the state for the page', function () {
 
     expect($this->queue->state())->toBe([
         'entries' => [
-            0 => ['group' => 'groceries', 'always' => true],
-            1 => ['group' => 'groceries', 'always' => true],
-            2 => ['group' => 'groceries', 'always' => true],
-            3 => ['group' => null, 'always' => false],
-            4 => ['group' => null, 'always' => false],
+            0 => ['group' => 'groceries', 'always' => true, 'chosen' => true],
+            1 => ['group' => 'groceries', 'always' => true, 'chosen' => true],
+            2 => ['group' => 'groceries', 'always' => true, 'chosen' => true],
+            3 => ['group' => 'other', 'always' => false, 'chosen' => false],
+            4 => ['group' => 'other', 'always' => false, 'chosen' => false],
         ],
-        'open' => 2,
     ]);
 });
 
 test('builds the final matches', function () {
     tegutAlwaysGroceries($this->queue);
     $this->queue->pick(3, 'groceries');
-    $this->queue->pick(4, 'other');
 
     $matches = $this->queue->finalMatches(['TEGUT' => 'r-manual']);
 

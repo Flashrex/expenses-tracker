@@ -2,6 +2,7 @@
 
 namespace App\Services\Statements;
 
+use App\Models\Group;
 use App\Services\Rules\RuleMatch;
 use App\Services\Rules\TextNormalizer;
 use InvalidArgumentException;
@@ -9,7 +10,7 @@ use LogicException;
 
 /**
  * The outgoing entries of a pending import that no rule matched, with the user's picks
- * and "always use this group" choices per merchant.
+ * and "always use this group" choices per merchant. Entries without a choice go to "Other".
  */
 final class ReviewQueue
 {
@@ -68,9 +69,17 @@ final class ReviewQueue
         return in_array($index, $this->queue, true);
     }
 
-    public function groupFor(int $index): ?string
+    public function groupFor(int $index): string
     {
-        return $this->picks[$index] ?? $this->always[$this->key($index)]['group_key'] ?? null;
+        return $this->picks[$index] ?? $this->always[$this->key($index)]['group_key'] ?? Group::OTHER;
+    }
+
+    /**
+     * Whether the user picked a group for the entry, by hand or through its merchant's "always" choice.
+     */
+    public function isChosen(int $index): bool
+    {
+        return isset($this->picks[$index]) || isset($this->always[$this->key($index)]);
     }
 
     /**
@@ -83,20 +92,17 @@ final class ReviewQueue
         return isset($this->always[$key]) && $this->groupFor($index) === $this->always[$key]['group_key'];
     }
 
-    /**
-     * Queue entries that still have no group.
-     */
-    public function openCount(): int
-    {
-        return count(array_filter($this->queue, fn (int $i) => $this->groupFor($i) === null));
-    }
-
     public function pick(int $index, string $groupKey): void
     {
         $this->ensureQueued($index);
 
         if ($this->isAlways($index)) {
-            $this->always[$this->key($index)]['group_key'] = $groupKey;
+            // "Other" has no rules, so moving an "always" merchant there ends the choice.
+            if ($groupKey === Group::OTHER) {
+                unset($this->always[$this->key($index)]);
+            } else {
+                $this->always[$this->key($index)]['group_key'] = $groupKey;
+            }
         }
 
         $this->picks[$index] = $groupKey;
@@ -109,8 +115,8 @@ final class ReviewQueue
         $group = $this->groupFor($index);
 
         if ($on) {
-            if ($group === null) {
-                throw new LogicException("Entry {$index} has no group yet.");
+            if ($group === Group::OTHER) {
+                throw new LogicException("Entry {$index} is in \"Other\", which cannot have rules.");
             }
 
             $this->picks[$index] = $group;
@@ -144,17 +150,17 @@ final class ReviewQueue
     }
 
     /**
-     * @return array{entries: array<int, array{group: ?string, always: bool}>, open: int}
+     * @return array{entries: array<int, array{group: string, always: bool, chosen: bool}>}
      */
     public function state(): array
     {
         $entries = [];
 
         foreach ($this->queue as $i) {
-            $entries[$i] = ['group' => $this->groupFor($i), 'always' => $this->isAlways($i)];
+            $entries[$i] = ['group' => $this->groupFor($i), 'always' => $this->isAlways($i), 'chosen' => $this->isChosen($i)];
         }
 
-        return ['entries' => $entries, 'open' => $this->openCount()];
+        return ['entries' => $entries];
     }
 
     /**

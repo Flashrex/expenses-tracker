@@ -152,7 +152,7 @@ test('saves ignore rules without share', function () {
 });
 
 test('saves the group order', function () {
-    $reversed = array_reverse(app(GroupCatalog::class)->keys());
+    $reversed = [...array_reverse(array_diff(app(GroupCatalog::class)->keys(), ['other'])), 'other'];
 
     $this->putJson(route('groups.order'), ['groups' => $reversed])->assertNoContent();
 
@@ -161,6 +161,30 @@ test('saves the group order', function () {
     $this->putJson(route('groups.order'), ['groups' => array_slice($reversed, 1)])->assertConflict();
 
     expect(app(GroupCatalog::class)->keys())->toBe($reversed);
+});
+
+test('keeps other last', function () {
+    $keys = app(GroupCatalog::class)->keys();
+
+    $this->putJson(route('groups.order'), ['groups' => ['other', ...array_diff($keys, ['other'])]])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['groups' => '"Other" must stay last.']);
+
+    expect(app(GroupCatalog::class)->keys())->toBe($keys);
+});
+
+test('refuses rules for other', function () {
+    $this->putJson(route('groups.update', 'other'), groupsCard('Other', [
+        ['id' => null, 'direction' => 'out', 'share' => '1', 'conditions' => [['field' => 'merchant', 'operator' => 'contains', 'value' => 'LOTTO']]],
+    ], '#9ba4b1'))
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['rules' => '"Other" collects everything no rule matches and cannot have rules.']);
+
+    expect(Rule::query()->where('group_key', 'other')->exists())->toBeFalse();
+
+    $this->putJson(route('groups.update', 'other'), groupsCard('Misc', [], '#9ba4b1'))->assertOk();
+
+    expect(Group::query()->where('key', 'other')->sole()->name)->toBe('Misc');
 });
 
 test('deletes a group and moves its entries', function () {

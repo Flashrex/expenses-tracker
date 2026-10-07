@@ -1,5 +1,5 @@
 export default ({ state, overrides, groups, assignUrl, alwaysUrl, overrideUrl, csrf }) => ({
-    state, // { entries: { [index]: { group, always } }, open }
+    state, // { entries: { [index]: { group, always, chosen } } }; unchosen entries are in 'other'
     overrides, // { [index]: groupKey } for entries moved away from their rule's group
     groups, // { [key]: { name, color } } in the usual group order
     busy: false,
@@ -30,8 +30,8 @@ export default ({ state, overrides, groups, assignUrl, alwaysUrl, overrideUrl, c
 
     // Grouped-by text of a To review entry.
     queuedBy(entry, merchant) {
-        const { group, always } = this.state.entries[entry];
-        if (group === null) return 'Not grouped';
+        const { chosen, always } = this.state.entries[entry];
+        if (!chosen) return 'No rule matched';
         return always ? `Always use for ${merchant}` : 'Picked manually';
     },
 

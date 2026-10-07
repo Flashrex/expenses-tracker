@@ -1,5 +1,4 @@
 @use('App\Enums\EntryStatus')
-@use('App\Services\Reports\GroupComparison')
 @use('App\Support\Period')
 
 @php
@@ -8,8 +7,7 @@
     $chip = 'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1 text-xs font-medium transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 dark:focus-visible:outline-emerald-400';
     $chipSelected = 'border-(--group) bg-(--group)/15 ring-1 ring-(--group) text-slate-900 dark:text-slate-100';
     $chipUnselected = 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-600';
-    $groups = app(App\Services\Groups\GroupCatalog::class)->all()
-        + [GroupComparison::UNASSIGNED => ['name' => 'Unassigned', 'color' => '#cbd5e1']];
+    $groups = app(App\Services\Groups\GroupCatalog::class)->all();
     $number = fn (int $n) => number_format($n, 0, ',', '.');
 @endphp
 

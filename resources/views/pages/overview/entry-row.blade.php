@@ -2,7 +2,7 @@
 
 @php
     $tone = $row->amountCents < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400';
-    $hasChips = $row->groupKey !== null || $row->ignored || $row->isUnassigned() || $row->isShared();
+    $hasChips = $row->groupKey !== null || $row->ignored || $row->isShared();
 @endphp
 
 <li data-entry="{{ $row->id }}" x-data="entryDescription(@js(['description' => $row->description, 'url' => route('entries.description.update', $row->id)]))" @class(['opacity-50' => $row->ignored])>
@@ -21,9 +21,6 @@
                     @endif
                     @if ($row->ignored)
                         <span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-400"><x-heroicon-m-eye-slash class="size-3.5" />ignored</span>
-                    @endif
-                    @if ($row->isUnassigned())
-                        <span data-unassigned class="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-400">Unassigned</span>
                     @endif
                     @if ($row->isShared())
                         <span title="Your share: 1/{{ $row->shareDivisor }}" class="inline-flex items-center rounded-full border border-slate-200 px-1.5 py-0.5 text-xs font-medium tabular-nums text-slate-600 dark:border-slate-700 dark:text-slate-300">÷{{ $row->shareDivisor }}</span>
@@ -49,8 +46,6 @@
         <x-slot:group>
             @if ($row->groupKey !== null)
                 <x-group-chip :group="$row->groupKey" />
-            @elseif ($row->isUnassigned())
-                Unassigned
             @else
                 —
             @endif

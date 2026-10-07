@@ -11,6 +11,7 @@ use App\Http\Requests\AssignReviewEntryRequest;
 use App\Http\Requests\OverrideReviewEntryRequest;
 use App\Http\Requests\StoreStatementUploadRequest;
 use App\Http\Requests\ToggleAlwaysRuleRequest;
+use App\Models\Group;
 use App\Models\Rule;
 use App\Models\Statement;
 use App\Models\Transaction;
@@ -177,7 +178,6 @@ class StatementUploadController extends Controller
             'rows' => $rows,
             'queueState' => $queue->state(),
             'overrides' => $batch->overrides($period),
-            'open' => $queue->openCount(),
             'period' => $period,
             'isBatch' => $batch->isBatch(),
             'steps' => $batch->steps(),
@@ -228,8 +228,8 @@ class StatementUploadController extends Controller
         $queue = $batch->reviewQueue($period);
         $index = $this->queuedIndex($request->integer('entry'), $queue);
 
-        if ($request->boolean('always') && $queue->groupFor($index) === null) {
-            throw ValidationException::withMessages(['always' => 'Pick a group first.']);
+        if ($request->boolean('always') && $queue->groupFor($index) === Group::OTHER) {
+            throw ValidationException::withMessages(['always' => '"Other" collects everything no rule matches and cannot have rules.']);
         }
 
         $queue->setAlways($index, $request->boolean('always'));
@@ -284,11 +284,6 @@ class StatementUploadController extends Controller
         $parsed = $batch->statement($period);
         $queue = $batch->reviewQueue($period);
 
-        if (($open = $queue->openCount()) > 0) {
-            return redirect()->route('upload.review', $period)
-                ->with('review_error', $open === 1 ? '1 entry still needs a group.' : "{$open} entries still need a group.");
-        }
-
         DB::transaction(function () use ($parsed, $queue, $batch, $period) {
             $replaced = Statement::query()
                 ->where('number', $parsed->number)
@@ -334,7 +329,7 @@ class StatementUploadController extends Controller
                 $ruleIds[$key] = $rule->id;
             }
 
-            $statement->transactions()->createMany(array_map(fn (ParsedEntry $entry, RuleMatch $match, ?string $description) => [
+            $statement->transactions()->createMany(array_map(fn (int $i, ParsedEntry $entry, RuleMatch $match, ?string $description) => [
                 ...$entry->toArray(),
                 'period' => $parsed->period,
                 'group_key' => $match->groupKey,
@@ -342,7 +337,8 @@ class StatementUploadController extends Controller
                 'ignored' => $match->ignored,
                 'rule_id' => $match->ruleId,
                 'description' => $description,
-            ], $parsed->entries, $batch->finalMatches($period, $ruleIds), $descriptions));
+                'unmatched' => $queue->contains($i) && ! $queue->isChosen($i),
+            ], array_keys($parsed->entries), $parsed->entries, $batch->finalMatches($period, $ruleIds), $descriptions));
         });
 
         $batch->markConfirmed($period);

@@ -7,8 +7,6 @@ namespace App\Services\Reports;
  */
 final readonly class GroupComparison
 {
-    public const UNASSIGNED = 'unassigned';
-
     public function __construct(
         public string $key,
         public string $name,
@@ -28,8 +26,6 @@ final readonly class GroupComparison
      */
     public static function rows(Totals $current, ?Totals $previous, array $groups): array
     {
-        $groups[self::UNASSIGNED] = ['name' => 'Unassigned', 'color' => '#cbd5e1', 'sort' => PHP_INT_MAX];
-
         $rows = [];
 
         foreach ($groups as $key => $group) {

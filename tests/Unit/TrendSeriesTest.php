@@ -80,13 +80,12 @@ test('lists only groups with spending in config order', function () {
         ->and($series->groups[1])->toMatchArray(['name' => 'Takeaway & Fast Food', 'color' => '#f97316']);
 });
 
-test('adds unassigned after the config groups', function () {
+test('has no unassigned series', function () {
     $series = TrendSeries::build(ReportMode::Month, ['2026-06', '2026-06'], [
         '2026-06' => spent(['unassigned' => 500, 'rent' => 100]),
     ], trendGroups());
 
-    expect(array_column($series->groups, 'key'))->toBe(['rent', 'unassigned'])
-        ->and($series->groups[1])->toBe(['key' => 'unassigned', 'name' => 'Unassigned', 'color' => '#cbd5e1', 'values' => [500]]);
+    expect(array_column($series->groups, 'key'))->toBe(['rent']);
 });
 
 test('sums the groups per period', function () {

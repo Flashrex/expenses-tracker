@@ -45,7 +45,6 @@ final readonly class TrendSeries
         $imported = array_map(fn (string $period) => in_array($period, $importedPeriods, true), $periods);
 
         uasort($groups, fn (array $a, array $b) => $a['sort'] <=> $b['sort']);
-        $groups[GroupComparison::UNASSIGNED] = ['name' => 'Unassigned', 'color' => '#cbd5e1'];
 
         $series = [];
 

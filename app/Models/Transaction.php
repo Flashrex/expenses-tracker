@@ -14,10 +14,11 @@ use MongoDB\Laravel\Eloquent\Model;
  * @property list<string> $search
  * @property ?string $description the user's own note on the entry
  * @property array{group_key: ?string, share_divisor: int, ignored: bool}|null $declined the rerun result the user declined for this entry
+ * @property bool $unmatched no rule matched the outgoing entry on import and nobody picked a group, so it went to "Other"
  */
 #[Fillable([
     'statement_id', 'period', 'booked_on', 'value_on', 'type', 'counterparty', 'purpose', 'merchant',
-    'amount_cents', 'direction', 'group_key', 'share_divisor', 'ignored', 'rule_id', 'declined', 'description',
+    'amount_cents', 'direction', 'group_key', 'share_divisor', 'ignored', 'rule_id', 'declined', 'description', 'unmatched',
 ])]
 class Transaction extends Model
 {
@@ -36,6 +37,7 @@ class Transaction extends Model
         'rule_id' => null,
         'declined' => null,
         'description' => null,
+        'unmatched' => false,
     ];
 
     /**
@@ -71,6 +73,7 @@ class Transaction extends Model
             'amount_cents' => 'integer',
             'share_divisor' => 'integer',
             'ignored' => 'boolean',
+            'unmatched' => 'boolean',
         ];
     }
 
