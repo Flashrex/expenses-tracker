@@ -90,6 +90,31 @@
                     @endif
                 </section>
             @endif
+
+            @if ($series->hasIncome())
+                <section x-data="incomeChart" data-income-chart="{{ json_encode($incomeChart) }}" aria-labelledby="income-heading" class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6 dark:border-slate-800 dark:bg-slate-900">
+                    <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                        <h2 id="income-heading" class="text-sm font-semibold">Income over time</h2>
+                        <p data-income-average x-show="average" x-cloak x-text="average" title="Average over the imported {{ Str::plural($mode->value) }}" class="text-sm font-semibold tabular-nums text-slate-700 dark:text-slate-300"></p>
+                    </div>
+
+                    <div x-ref="chart" role="img" aria-label="Income over time per {{ $mode->value }}, {{ $series->rangeLabel() }}" class="mt-4 h-64 w-full sm:h-72"></div>
+
+                    @if ($singleMonth)
+                        <p data-single-period class="mt-3 text-xs text-slate-500 dark:text-slate-400">Import another month to compare trends.</p>
+                    @endif
+                </section>
+            @else
+                <section aria-labelledby="income-heading" class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6 dark:border-slate-800 dark:bg-slate-900">
+                    <h2 id="income-heading" class="text-sm font-semibold">Income over time</h2>
+
+                    <p data-no-income class="py-12 text-center text-sm text-slate-500 dark:text-slate-400">No income in {{ $series->rangeLabel() }}</p>
+
+                    @if ($singleMonth)
+                        <p data-single-period class="mt-3 text-xs text-slate-500 dark:text-slate-400">Import another month to compare trends.</p>
+                    @endif
+                </section>
+            @endif
         </div>
     @endif
 </x-layouts.app>

@@ -6,7 +6,7 @@ use App\Enums\ReportMode;
 use App\Support\Period;
 
 /**
- * Spending per group over a continuous range of months or years, ready for a stacked bar chart and a line chart.
+ * Spending per group and income over a continuous range of months or years, ready for a stacked bar chart and line charts.
  */
 final readonly class TrendSeries
 {
@@ -15,6 +15,7 @@ final readonly class TrendSeries
      * @param  list<string>  $labels  axis labels aligned with $periods
      * @param  list<array{key: string, name: string, color: string, values: list<int>}>  $groups  values = positive cents aligned with $periods
      * @param  list<bool>  $imported  aligned with $periods: month (or any month of the year) has a confirmed statement
+     * @param  list<int>  $income  positive cents aligned with $periods
      */
     private function __construct(
         public ReportMode $mode,
@@ -22,6 +23,7 @@ final readonly class TrendSeries
         public array $labels,
         public array $groups,
         public array $imported,
+        public array $income,
     ) {}
 
     /**
@@ -56,7 +58,9 @@ final readonly class TrendSeries
             }
         }
 
-        return new self($mode, $periods, $labels, $series, $imported);
+        $income = array_values(array_map(fn (Totals $totals) => $totals->incomeCents, $buckets));
+
+        return new self($mode, $periods, $labels, $series, $imported, $income);
     }
 
     /**
@@ -84,6 +88,11 @@ final readonly class TrendSeries
     public function hasSpending(): bool
     {
         return $this->groups !== [];
+    }
+
+    public function hasIncome(): bool
+    {
+        return array_sum($this->income) > 0;
     }
 
     /**

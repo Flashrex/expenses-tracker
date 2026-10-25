@@ -145,3 +145,32 @@ test('flags an imported year without spending', function () {
     expect($series->imported)->toBe([true, true])
         ->and(trendGroupsByKey($series)['groceries']['values'])->toBe([0, 2000]);
 });
+
+test('aligns income with the periods', function () {
+    $series = TrendSeries::build(ReportMode::Month, ['2026-03', '2026-05'], [
+        '2026-03' => new Totals(0, 250000, []),
+        '2026-05' => new Totals(1000, 260000, ['rent' => 1000]),
+    ], trendGroups());
+
+    expect($series->income)->toBe([250000, 0, 260000])
+        ->and($series->hasIncome())->toBeTrue();
+});
+
+test('sums income per year', function () {
+    $series = TrendSeries::build(ReportMode::Year, ['2025-12', '2026-06'], [
+        '2025-12' => new Totals(0, 100000, []),
+        '2026-05' => new Totals(0, 200000, []),
+        '2026-06' => new Totals(0, 300000, []),
+    ], trendGroups());
+
+    expect($series->income)->toBe([100000, 500000]);
+});
+
+test('has no income without incoming amounts', function () {
+    $series = TrendSeries::build(ReportMode::Month, ['2026-06', '2026-06'], [
+        '2026-06' => spent(['rent' => 100]),
+    ], trendGroups());
+
+    expect($series->income)->toBe([0])
+        ->and($series->hasIncome())->toBeFalse();
+});

@@ -270,13 +270,13 @@ test('labels the line chart per year', function () {
         ->assertSee('aria-label="Spending over time per year, 2026"', false);
 });
 
-test('shows the single month hint on both cards', function () {
+test('shows the single month hint on every card', function () {
     $this->actingAs($this->user);
     importFixtureStatement();
 
     $response = $this->get(route('trends'))->assertOk()->assertSee('x-ref="line"', false);
 
-    expect(substr_count($response->getContent(), 'data-single-period'))->toBe(2);
+    expect(substr_count($response->getContent(), 'data-single-period'))->toBe(3);
 });
 
 test('shows no line chart without spending', function () {
@@ -291,7 +291,62 @@ test('shows no line chart without spending', function () {
     $html = $response->getContent();
 
     expect(substr_count($html, 'No spending in Jun 2026'))->toBe(2)
-        ->and(substr_count($html, 'data-single-period'))->toBe(2);
+        ->and(substr_count($html, 'data-single-period'))->toBe(3);
+});
+
+/** @return array{labels: list<string>, imported: list<bool>, values: list<int>, per: string} */
+function incomeChart(TestResponse $response): array
+{
+    preg_match('/data-income-chart="([^"]*)"/', $response->getContent(), $match);
+
+    return json_decode(html_entity_decode($match[1]), true);
+}
+
+test('passes the monthly income to the income chart', function () {
+    importedMonth('2026-03', [['amount_cents' => 250000, 'direction' => 'in'], ['amount_cents' => -1000, 'group_key' => 'groceries']]);
+    importedMonth('2026-04', [['amount_cents' => -1000, 'group_key' => 'groceries']]);
+    importedMonth('2026-06', [
+        ['amount_cents' => 260000, 'direction' => 'in'],
+        ['amount_cents' => 1500, 'direction' => 'in'],
+        ['amount_cents' => 9999, 'direction' => 'in', 'ignored' => true],
+    ]);
+
+    $response = $this->actingAs($this->user)->get(route('trends'))
+        ->assertOk()
+        ->assertSee('x-data="incomeChart"', false)
+        ->assertSee('Income over time')
+        ->assertSee('aria-label="Income over time per month, Mar 2026 – Jun 2026"', false)
+        ->assertSee('data-income-average', false);
+
+    expect(incomeChart($response))->toBe([
+        'labels' => ['Mar 2026', 'Apr 2026', 'May 2026', 'Jun 2026'],
+        'imported' => [true, true, false, true],
+        'values' => [250000, 0, 0, 261500],
+        'per' => 'month',
+    ]);
+});
+
+test('sums income per year', function () {
+    importedMonth('2025-12', [['amount_cents' => 100000, 'direction' => 'in']]);
+    importedMonth('2026-05', [['amount_cents' => 200000, 'direction' => 'in']]);
+    importedMonth('2026-06', [['amount_cents' => 300000, 'direction' => 'in']]);
+
+    $chart = incomeChart($this->actingAs($this->user)->get(route('trends', ['by' => 'year']))->assertOk());
+
+    expect($chart['labels'])->toBe(['2025', '2026'])
+        ->and($chart['values'])->toBe([100000, 500000])
+        ->and($chart['per'])->toBe('year');
+});
+
+test('shows no income chart without income', function () {
+    importedMonth('2026-06', [['amount_cents' => -1000, 'group_key' => 'groceries']]);
+
+    $this->actingAs($this->user)->get(route('trends'))
+        ->assertOk()
+        ->assertSee('Income over time')
+        ->assertSee('No income in Jun 2026')
+        ->assertDontSee('data-income-chart', false)
+        ->assertSee('x-data="trendChart"', false);
 });
 
 test('registers the line chart module', function () {

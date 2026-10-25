@@ -14,7 +14,7 @@ use Illuminate\Http\Request;
 class TrendsController extends Controller
 {
     /**
-     * Show spending per group for every month (or year) from the first to the last import.
+     * Show spending per group and income for every month (or year) from the first to the last import.
      */
     public function __invoke(Request $request, SpendingReport $report, GroupCatalog $groups): View|RedirectResponse
     {
@@ -38,10 +38,12 @@ class TrendsController extends Controller
         $series = TrendSeries::build($mode, $imported, $report->totalsByPeriod($first, $last), $groups->all());
 
         $chart = ['labels' => $series->labels, 'imported' => $series->imported, 'series' => $series->groups, 'per' => $mode->value];
+        $incomeChart = ['labels' => $series->labels, 'imported' => $series->imported, 'values' => $series->income, 'per' => $mode->value];
 
         return view('pages.trends', [
             'series' => $series,
             'chart' => $chart,
+            'incomeChart' => $incomeChart,
             'mode' => $mode,
             'singleMonth' => count($imported) === 1,
         ]);
