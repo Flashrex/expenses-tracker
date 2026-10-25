@@ -11,8 +11,8 @@ abstract class TestCase extends BaseTestCase
     {
         parent::setUp();
 
-        // DatabaseMigrations runs db:wipe, which disconnects the MongoDB connection and leaves it
-        // without a client, so transactions could not start a session. Purge it to reconnect lazily.
+        // migrate:fresh (RefreshMongoDatabase, first test) runs db:wipe, which disconnects the MongoDB connection
+        // and leaves it without a client, so transactions could not start a session. Purge it to reconnect lazily.
         DB::purge();
     }
 }

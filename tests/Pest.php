@@ -8,14 +8,14 @@ use App\Services\Statements\MerchantDeriver;
 use App\Services\Statements\ParsedEntry;
 use App\Services\Statements\ParsedStatement;
 use Database\Seeders\RuleSeeder;
-use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Testing\TestResponse;
 use Tests\Support\RedatingStatementParser;
+use Tests\Support\RefreshMongoDatabase;
 use Tests\TestCase;
 
 pest()->extend(TestCase::class)
-    ->use(DatabaseMigrations::class)
+    ->use(RefreshMongoDatabase::class)
     ->in('Feature');
 
 function fixturePath(string $name): string
